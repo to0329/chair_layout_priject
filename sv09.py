@@ -366,6 +366,7 @@ def create_json_response(params, layout_info, coords_data, image_base64):
 @app.route("/")
 def index():
     return render_template("sv09.html")
+@app.route("/calculate", methods=["POST"])
 def calculate():
     try:
         #1.データを受け取り、問題があるか確認
