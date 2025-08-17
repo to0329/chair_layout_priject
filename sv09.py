@@ -36,7 +36,7 @@ app = Flask(__name__) #Flaskアプリを生成
 #接続を許可するウェブサイト（オリジン）のリストを定義する
 allowed_origins = [
     #本番サイトのURL
-    "https://www.your-production-site.com",
+    "https://chair-layout.onrender.com",
 
     #ローカルでの開発・テスト用のオリジン
     "http://127.0.0.1:5500",
