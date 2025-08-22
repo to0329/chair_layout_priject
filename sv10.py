@@ -1,5 +1,5 @@
-from flask import Flask, request, jsonify, render_template # render_template を追加
-from flask import Flask, request, jsonify
+#ファビコンの設定
+from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_cors import CORS #PythonとHTML間の通信
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -363,6 +363,9 @@ def create_json_response(params, layout_info, coords_data, image_base64):
 
 
 # ▼▼▼!! メイン関数 !!▼▼▼
+@app.route('/logo.png')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'logo.png', mimetype='image/png')
 @app.route("/")
 def index():
     return render_template("sv10.html")
