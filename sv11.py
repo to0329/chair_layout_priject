@@ -52,10 +52,12 @@ CORS(app, resources={r"/calculate": {"origins": allowed_origins}})
 #レートリミットの設定
 limiter = Limiter(
     app=app,
-    key_func=get_remote_address, # IPアドレスを基準にユーザーを識別
-    default_limits=["20 per minute"] # アプリ全体でのデフォルト制限 (1分間に20回まで)
+    key_func=get_remote_address,
+    default_limits=["20 per minute"],
+    # ▼▼▼ 以下の2行を追加 ▼▼▼
+    storage_uri=os.environ.get("REDIS_URL"), # 保存先をRenderのRedisに指定
+    strategy="fixed-window" # Flask-Limiter推奨の設定
 )
-
 
 # ▼▼▼ 関数群 ▼▼▼
 
