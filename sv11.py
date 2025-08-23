@@ -1,5 +1,6 @@
 #ファビコンの設定
-from flask import Flask, request, jsonify, render_template, send_from_directory
+#サーバへのアクセス回数を1分間に20回に制限
+from flask import Flask, request, jsonify, render_template, send_from_directory, Response
 from flask_cors import CORS #PythonとHTML間の通信
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -370,6 +371,32 @@ def create_json_response(params, layout_info, coords_data, image_base64):
 @app.route("/")
 def index():
     return render_template("sv11.html")
+# robots.txtを提供するルート
+@app.route('/robots.txt')
+def robots_txt():
+    # すべてのクローラーに対して、すべてのページのクロールを許可する
+    content = "User-agent: *\nAllow: /"
+    return Response(content, mimetype='text/plain')
+
+# sitemap.xmlを提供するルート
+@app.route('/sitemap.xml')
+def sitemap():
+    # サイトのURLを記述
+    # 必ずご自身のRenderのURLに変更してください
+    url = "https://chair-layout.onrender.com"
+
+    # XML形式のサイトマップを作成
+    content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>{url}/</loc>
+    <lastmod>2025-08-23</lastmod> <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
+"""
+    return Response(content, mimetype='application/xml')
+
 @app.route("/calculate", methods=["POST"])
 def calculate():
     try:
