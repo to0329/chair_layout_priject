@@ -25,6 +25,7 @@ MAX_CHAIR_COUNT = 100000      #イスの最大数（10万脚）
 MIN_SPACING_X_CM = 20  #イスの最小横間隔 (20cm)
 MIN_SPACING_Y_CM = 100 #イスの最小縦間隔 (100cm) 兼 最前列の通路幅
 AISLE_WIDTH_CM = 100   #通路の幅 (100cm)
+WALL_GAP_CM = 5 #壁との隙間
 
 # --- 探索アルゴリズム ---
 #【変更箇所】古い探索用の定数は不要になったため削除
@@ -92,90 +93,88 @@ def parse_and_validate_input(data):
 
 #2.列数・行数ベースで最適なイスの配置を探す関数
 def find_optimal_layout(params):
+    
+    # --- 1. 初期化 ---
     best_max_chairs = 0
     best_layout = {}
     final_layout = {}
-    found_solution = False #希望数を満たせたか
-    
-    #左右端に通路がある場合、その分有効幅を狭める
-    effective_hall_width = params["hall_width"]
+    found_solution = False
+
+    # --- 2. 事前準備 (イスを配置できる有効なエリアのサイズを計算) ---
+    effective_hall_width = params["hall_width"] - (WALL_GAP_CM * 2)
     if params["add_side_aisles"]:
         effective_hall_width -= AISLE_WIDTH_CM * 2
-    else:
-        effective_hall_width -= 10
-    #最前列のスペースを確保
-    effective_hall_depth = params["hall_depth"] - MIN_SPACING_Y_CM
+    
+    effective_hall_depth = params["hall_depth"] - MIN_SPACING_Y_CM - WALL_GAP_CM
 
-    #イスを置くスペースが全くない場合はここで処理を終了
     if effective_hall_width <= 0 or effective_hall_depth <= 0:
         return {}, {}
 
-    #最小限の1人分のスペース
+    # --- 3. ループ上限の設定 (枝刈り) ---
     min_space_per_chair_x = params["chair_width"] + MIN_SPACING_X_CM
     min_space_per_chair_y = params["chair_depth"] + MIN_SPACING_Y_CM
     
-    #有効幅に置けるイスの数(max_c)の計算
-    #1人分のスペースが1以上なら
     if min_space_per_chair_x > 0:
         max_c = math.ceil(effective_hall_width / min_space_per_chair_x)
     else:
         max_c = 0
-    #有効幅に置けるイスの数(max_r)の計算
+        
     if min_space_per_chair_y > 0:
         max_r = math.ceil(effective_hall_depth / min_space_per_chair_y)
     else:
         max_r = 0
 
+    # --- 4. メインループ (全ての列数cと行数rの組み合わせを試す) ---
     for c in range(1, max_c + 1):
         for r in range(1, max_r + 1):
 
-            #
-            total_chair_width = c * params["chair_width"] #イスのみの合計幅
-            additional_width = 0 #通路の幅の入れ物
+            # --- 5. 必要な間隔の逆算 ---
+            total_chair_width = c * params["chair_width"]
+            additional_width = 0
+            
+            # ▼▼▼【修正点】通路幅の計算を「c > 1」の場合のみ実行するように変更 ▼▼▼
+            if c > 1:
+                if params["aisle_mode"] == 'every_n':
+                    if params["aisle_every_x"] > 0:
+                        num_aisles_x = (c - 1) // params["aisle_every_x"]
+                        additional_width += num_aisles_x * AISLE_WIDTH_CM
+                elif params["aisle_mode"] == 'fixed_number':
+                    additional_width += params["num_aisles_x"] * AISLE_WIDTH_CM
+            # ▲▲▲ 修正ここまで ▲▲▲
 
-            # 各オプションに応じた追加幅の計算
-            if params["aisle_mode"] == 'every_n':
-                num_aisles_x = (c - 1) // params["aisle_every_x"] if params["aisle_every_x"] > 0 else 0
-                additional_width += num_aisles_x * AISLE_WIDTH_CM
-            elif params["aisle_mode"] == 'fixed_number':
-                additional_width += params["num_aisles_x"] * AISLE_WIDTH_CM
-
-            # 間隔の逆算
             if c > 1:
                 if params["zigzag_layout"]:
-                    # ジグザグの場合、間隔(s)とイス幅(w)の関係から s = (W - (c+0.5)w) / (c-0.5) の式で逆算
                     denominator = c - 0.5
                     if denominator > 0:
                          required_spacing_x = (effective_hall_width - additional_width - (c + 0.5) * params["chair_width"]) / denominator
-                    else: # 発生しないはずだが安全装置
+                    else:
                         required_spacing_x = -1
                 else:
-                    # 通常の場合は (有効幅 - イス合計幅 - 通路幅) / すき間の数 で逆算
                     required_spacing_x = (effective_hall_width - total_chair_width - additional_width) / (c - 1)
-            else: # 1列の場合
+            else:
                 required_spacing_x = float('inf') if effective_hall_width >= total_chair_width + additional_width else -1
 
-            # === 縦方向(Y)の計算 (横方向と同様) ===
             total_chair_depth = r * params["chair_depth"]
             additional_depth = 0
             
-            if params["aisle_mode"] == 'every_n':
-                num_aisles_y = (r - 1) // params["aisle_every_y"] if params["aisle_every_y"] > 0 else 0
-                additional_depth += num_aisles_y * AISLE_WIDTH_CM
-            elif params["aisle_mode"] == 'fixed_number':
-                additional_depth += params["num_aisles_y"] * AISLE_WIDTH_CM
-            
+            # ▼▼▼【修正点】通路幅の計算を「r > 1」の場合のみ実行するように変更 ▼▼▼
+            if r > 1:
+                if params["aisle_mode"] == 'every_n':
+                    if params["aisle_every_y"] > 0:
+                        num_aisles_y = (r - 1) // params["aisle_every_y"]
+                        additional_depth += num_aisles_y * AISLE_WIDTH_CM
+                elif params["aisle_mode"] == 'fixed_number':
+                    additional_depth += params["num_aisles_y"] * AISLE_WIDTH_CM
+            # ▲▲▲ 修正ここまで ▲▲▲
+
             if r > 1:
                 required_spacing_y = (effective_hall_depth - total_chair_depth - additional_depth) / (r - 1)
-            else: # 1行の場合
+            else:
                 required_spacing_y = float('inf') if effective_hall_depth >= total_chair_depth + additional_depth else -1
 
             # --- 6. 判定と最適解の更新 ---
-            # 計算した間隔が、設定した最小値を満たしているか判定します
             if required_spacing_x >= MIN_SPACING_X_CM and required_spacing_y >= MIN_SPACING_Y_CM:
                 current_chairs = c * r
-
-                # (a) これまでに見つけた最大配置数を超えたか？
                 if current_chairs > best_max_chairs:
                     best_max_chairs = current_chairs
                     best_layout = {
@@ -183,8 +182,6 @@ def find_optimal_layout(params):
                         "spacing_x": required_spacing_x, "spacing_y": required_spacing_y,
                         "max": current_chairs
                     }
-
-                # (b) ユーザーの希望数を初めて満たしたか？
                 if not found_solution and current_chairs >= params["num_chairs"]:
                     found_solution = True
                     final_layout = {
