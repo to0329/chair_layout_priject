@@ -90,7 +90,7 @@ def parse_and_validate_input(data):
         raise ValueError(str(e))
 
 
-#列数・行数ベースで最適なイスの配置を探す関数
+#2.列数・行数ベースで最適なイスの配置を探す関数
 def find_optimal_layout(params):
     best_max_chairs = 0
     best_layout = {}
@@ -101,6 +101,8 @@ def find_optimal_layout(params):
     effective_hall_width = params["hall_width"]
     if params["add_side_aisles"]:
         effective_hall_width -= AISLE_WIDTH_CM * 2
+    else:
+        effective_hall_width -= 10
     #最前列のスペースを確保
     effective_hall_depth = params["hall_depth"] - MIN_SPACING_Y_CM
 
