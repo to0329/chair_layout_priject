@@ -364,7 +364,7 @@ def create_json_response(params, layout_info, coords_data, image_base64):
 # ▼▼▼!! メイン関数 !!▼▼▼
 @app.route("/")
 def index():
-    return render_template("sv11.html")
+    return render_template("sv12.html")
 
 @app.route('/robots.txt')
 def robots_txt():
