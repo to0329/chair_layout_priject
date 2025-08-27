@@ -216,6 +216,7 @@ def _calculate_max_rows_cols(params, effective_hall_width, effective_hall_depth,
         max_rows = math.floor(effective_hall_depth / space_y) if space_y > 0 else 0
         
     return max_cols, max_rows
+
 #3-0.イスの座標を計算し、リストを作成
 def calculate_chair_coordinates(params, layout_info):
     coords = [] #座標の入れ物
@@ -373,11 +374,7 @@ def create_json_response(params, layout_info, coords_data):
 # ▼▼▼!! メイン関数 !!▼▼▼
 @app.route("/")
 def index():
-<<<<<<<< HEAD:sv14.py
     return render_template("sv14.html")
-========
-    return render_template("sv13.html")
->>>>>>>> a0589aa4e58b16b60590a2be0e1e30b5baef8724:sv13.py
 # robots.txtを提供するルート
 @app.route('/robots.txt')
 def robots_txt():
