@@ -1,5 +1,6 @@
 #画像生成をフロントで
 #壁やイスからの距離を表示
+#アイフォンでファビコンを表示
 from flask import Flask, request, jsonify, render_template, send_from_directory, Response
 from flask_cors import CORS #PythonとHTML間の通信
 from flask_limiter import Limiter
@@ -379,7 +380,7 @@ def create_json_response(params, layout_info, coords_data):
 # ▼▼▼!! メイン関数 !!▼▼▼
 @app.route("/")
 def index():
-    return render_template("sv14.html")
+    return render_template("sv15.html")
 # robots.txtを提供するルート
 @app.route('/robots.txt')
 def robots_txt():
