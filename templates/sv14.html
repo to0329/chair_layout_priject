@@ -70,7 +70,7 @@
 
   <p id="loading" style="display: none; font-weight: bold;">処理中…</p>
   <p id="result"></p>
-  <canvas id="layoutCanvas" style="max-width: 500px; width: 100%; border: 1px solid black; display: none;"></canvas>
+  <canvas id="layoutCanvas" style="max-width: 400px; width: 100%; border: 1px solid black; display: none;"></canvas>
   <script>
     function updateAisleSettings() { //メニュー変更すると実行されるメソッド
       const mode = document.getElementById("aisle_mode").value; //モードを取得
@@ -244,77 +244,111 @@
             ctx.strokeRect(x, y, data.chair_width, data.chair_depth);
         });
         
-        // ▼▼▼ ここからが追加部分 ▼▼▼
-        // --- イスの間隔を描画する処理 ---
-
-        // 2脚以上ないと間隔は描画できないのでここで終了
-        if (data.coords.length < 2) {
+        // イスがなければここで処理終了
+        if (data.coords.length === 0) {
             return;
         }
 
-        // 寸法線とテキストのスタイルを設定
-        ctx.fillStyle = '#d33'; // テキストの色を赤に
-        ctx.strokeStyle = '#d33'; // 線の色を赤に
+        // --- イスとイスの間隔を描画する処理 ---
+        if (data.coords.length >= 2) {
+            // 寸法線とテキストのスタイルを設定
+            ctx.fillStyle = '#d33'; // テキストの色を赤に
+            ctx.strokeStyle = '#d33'; // 線の色を赤に
+            ctx.lineWidth = 2;
+            const fontSize = Math.max(12, Math.min(data.chair_width, data.chair_depth) * 0.3);
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.textAlign = 'center'; // テキストを中央揃えに
+            ctx.textBaseline = 'middle'; // テキストの垂直位置を中央に
+
+            // 横方向の間隔を描画
+            if (data.cols > 1) {
+                const chair1 = data.coords[0]; const chair2 = data.coords[1];
+                const startX = chair1[0] + data.chair_width; const endX = chair2[0];
+                const midY = chair1[1] + data.chair_depth / 2;
+                ctx.beginPath();
+                ctx.moveTo(startX, midY); ctx.lineTo(endX, midY);
+                ctx.moveTo(startX, midY - 10); ctx.lineTo(startX, midY + 10);
+                ctx.moveTo(endX, midY - 10); ctx.lineTo(endX, midY + 10);
+                ctx.stroke();
+                ctx.fillText(`${data.spacing_x} cm`, startX + data.spacing_x / 2, midY);
+            }
+
+            // 縦方向の間隔を描画
+            if (data.rows > 1) {
+                const chair1 = data.coords[0]; const chair2 = data.coords[data.cols];
+                const startY = chair1[1] + data.chair_depth; const endY = chair2[1];
+                const midX = chair1[0] + data.chair_width / 2;
+                ctx.beginPath();
+                ctx.moveTo(midX, startY); ctx.lineTo(midX, endY);
+                ctx.moveTo(midX - 10, startY); ctx.lineTo(midX + 10, startY);
+                ctx.moveTo(midX - 10, endY); ctx.lineTo(midX + 10, endY);
+                ctx.stroke();
+                ctx.fillText(`${data.spacing_y} cm`, midX, startY + data.spacing_y / 2);
+            }
+        }
+        
+        // ▼▼▼ ここからが壁との距離を描画する追加部分 ▼▼▼
+        // --- 壁とイスの間の距離を描画する処理 ---
+        
+        // スタイルを青色に変更
+        ctx.fillStyle = '#007bff';
+        ctx.strokeStyle = '#007bff';
         ctx.lineWidth = 2;
-        // フォントサイズをイスのサイズの30%程度に設定（小さすぎたり大きすぎたりするのを防ぐ）
         const fontSize = Math.max(12, Math.min(data.chair_width, data.chair_depth) * 0.3);
         ctx.font = `bold ${fontSize}px sans-serif`;
-        ctx.textAlign = 'center'; // テキストを中央揃えに
-        ctx.textBaseline = 'middle'; // テキストの垂直位置を中央に
+        
+        const firstChair = data.coords[0];
+        const lastChairInFirstRow = data.coords[data.cols - 1];
+        const lastChair = data.coords[data.coords.length - 1];
 
-        // --- 横方向の間隔を描画 ---
-        // 2列以上ある場合のみ描画
-        if (data.cols > 1) {
-            const chair1 = data.coords[0]; // 1番目のイス
-            const chair2 = data.coords[1]; // 2番目のイス
+        // --- 上壁からの距離 (offset_y) ---
+        ctx.textAlign = 'left';
+        const topTextX = firstChair[0] + data.chair_width / 2;
+        const topTextY = firstChair[1] / 2;
+        ctx.beginPath();
+        ctx.moveTo(topTextX - 10, 0); ctx.lineTo(topTextX + 10, 0); // 上壁側の線
+        ctx.moveTo(topTextX, 0); ctx.lineTo(topTextX, firstChair[1]); // 縦線
+        ctx.moveTo(topTextX - 10, firstChair[1]); ctx.lineTo(topTextX + 10, firstChair[1]); // イス側の線
+        ctx.stroke();
+        ctx.fillText(`${data.offset_y} cm`, topTextX + 15, topTextY);
 
-            // イスとイスの間の中心点を計算
-            const startX = chair1[0] + data.chair_width;
-            const endX = chair2[0];
-            const midY = chair1[1] + data.chair_depth / 2;
+        // --- 左壁からの距離 (offset_x) ---
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        const leftTextX = firstChair[0] / 2;
+        const leftTextY = firstChair[1] + data.chair_depth / 2;
+        ctx.beginPath();
+        ctx.moveTo(0, leftTextY - 10); ctx.lineTo(0, leftTextY + 10); // 左壁側の線
+        ctx.moveTo(0, leftTextY); ctx.lineTo(firstChair[0], leftTextY); // 横線
+        ctx.moveTo(firstChair[0], leftTextY - 10); ctx.lineTo(firstChair[0], leftTextY + 10); // イス側の線
+        ctx.stroke();
+        ctx.fillText(`${data.offset_x} cm`, leftTextX, leftTextY - 5);
 
-            // 寸法線を描画
-            ctx.beginPath();
-            ctx.moveTo(startX, midY);
-            ctx.lineTo(endX, midY);
-            // 線の両端に短い縦線を描画して寸法線らしく見せる
-            ctx.moveTo(startX, midY - 10);
-            ctx.lineTo(startX, midY + 10);
-            ctx.moveTo(endX, midY - 10);
-            ctx.lineTo(endX, midY + 10);
-            ctx.stroke();
+        // --- 右壁からの距離 ---
+        const rightStartX = lastChairInFirstRow[0] + data.chair_width;
+        const rightGap = data.hall_width - rightStartX;
+        const rightTextX = rightStartX + rightGap / 2;
+        const rightTextY = lastChairInFirstRow[1] + data.chair_depth / 2;
+        ctx.beginPath();
+        ctx.moveTo(rightStartX, rightTextY - 10); ctx.lineTo(rightStartX, rightTextY + 10);
+        ctx.moveTo(rightStartX, rightTextY); ctx.lineTo(data.hall_width, rightTextY);
+        ctx.moveTo(data.hall_width, rightTextY - 10); ctx.lineTo(data.hall_width, rightTextY + 10);
+        ctx.stroke();
+        ctx.fillText(`${Math.round(rightGap)} cm`, rightTextX, rightTextY - 5);
 
-            // 間隔のテキストを書き込む
-            const textX = startX + data.spacing_x / 2;
-            ctx.fillText(`${data.spacing_x} cm`, textX, midY);
-        }
-
-        // --- 縦方向の間隔を描画 ---
-        // 2行以上ある場合のみ描画
-        if (data.rows > 1) {
-            const chair1 = data.coords[0]; // 1行目の1番目のイス
-            const chair2 = data.coords[data.cols]; // 2行目の1番目のイス
-
-            // イスとイスの間の中心点を計算
-            const startY = chair1[1] + data.chair_depth;
-            const endY = chair2[1];
-            const midX = chair1[0] + data.chair_width / 2;
-            
-            // 寸法線を描画
-            ctx.beginPath();
-            ctx.moveTo(midX, startY);
-            ctx.lineTo(midX, endY);
-            // 線の両端に短い横線を描画
-            ctx.moveTo(midX - 10, startY);
-            ctx.lineTo(midX + 10, startY);
-            ctx.moveTo(midX - 10, endY);
-            ctx.lineTo(midX + 10, endY);
-            ctx.stroke();
-
-            // 間隔のテキストを書き込む
-            const textY = startY + data.spacing_y / 2;
-            ctx.fillText(`${data.spacing_y} cm`, midX, textY);
-        }
+        // --- 下壁からの距離 ---
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        const bottomStartY = lastChair[1] + data.chair_depth;
+        const bottomGap = data.hall_depth - bottomStartY;
+        const bottomTextX = lastChair[0] + data.chair_width / 2;
+        const bottomTextY = bottomStartY + bottomGap / 2;
+        ctx.beginPath();
+        ctx.moveTo(bottomTextX - 10, bottomStartY); ctx.lineTo(bottomTextX + 10, bottomStartY);
+        ctx.moveTo(bottomTextX, bottomStartY); ctx.lineTo(bottomTextX, data.hall_depth);
+        ctx.moveTo(bottomTextX - 10, data.hall_depth); ctx.lineTo(bottomTextX + 10, data.hall_depth);
+        ctx.stroke();
+        ctx.fillText(`${Math.round(bottomGap)} cm`, bottomTextX + 15, bottomTextY);
         // ▲▲▲ 追加部分はここまで ▲▲▲
     }
     // ▲▲▲ 追加 ▲▲▲
