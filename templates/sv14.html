@@ -6,17 +6,14 @@
 
   <meta name="google-site-verification" content="AXz5_dUosCYMj6jNapTpVmyEFWeTlV46AcrwSXdQCn0" /> <meta name="description" content="無料で使えるイス配置シミュレータ。会場とイスのサイズ、イスの数を入力するだけで、レイアウト図を自動作成。イベントの準備に最適です。">
 
-  <meta property="og:url" content="https://chair-layout.onrender.com">
-  <meta property="og:type" content="website">
+  <link rel="canonical" href="https://chair-layout.onrender.com"> <meta property="og:url" content="https://chair-layout.onrender.com"> <meta property="og:type" content="website">
   <meta property="og:title" content="イス配置シミュレータ | イベント会場の座席数を自動計算">
   <meta property="og:description" content="会場とイスのサイズとイスの数を入力するだけで、レイアウト図を自動作成します。">
-  <meta property="og:site_name" content="イス配置シミュレータ">
-  <meta property="og:image" content="{{ url_for('static', filename='.png') }}">
-  <link rel="canonical" href="https://chair-layout.onrender.com"> 
   
   <link rel="icon" href="{{ url_for('static', filename='logo.png') }}" type="image/png">
-  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', logo_180x180.png') }}">
-      <style>    /*.settings_panelは、class="settings_panel"と指定されたものに、{ }の中を適用すること*/
+  
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='logo_180x180.png') }}">
+    <style>    /*.settings_panelは、class="settings_panel"と指定されたものに、{ }の中を適用すること*/
     .settings_panel {
       display: none;
       border-left: 2px solid #696969;
