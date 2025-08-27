@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>イス配置シミュレータ | イベント会場の座席数を自動計算</title>
+
+  <meta name="google-site-verification" content="AXz5_dUosCYMj6jNapTpVmyEFWeTlV46AcrwSXdQCn0" /> <!--SEOで見つけてもらいやすく-->
+  <meta name="description" content="無料で使えるイス配置シミュレータ。会場とイスのサイズ、イスの数を入力するだけで、レイアウト図を自動作成。イベントの準備に最適です。">
+
+  <link rel="canonical" href="https://chair-layout.onrender.com"> <meta property="og:url" content="https://chair-layout.onrender.com"> <meta property="og:type" content="website">
+  <meta property="og:title" content="イス配置シミュレータ | イベント会場の座席数を自動計算">
+  <meta property="og:description" content="会場とイスのサイズとイスの数を入力するだけで、レイアウト図を自動作成します。">
+  <link rel="icon" href="{{ url_for('static', filename='logo.png') }}" type="image/png">
+  <style>    /*.settings_panelは、class="settings_panel"と指定されたものに、{ }の中を適用すること*/
+    .settings_panel {
+      display: none;
+      border-left: 2px solid #696969;
+      /*左側に実線*/
+      padding-left: 15px;
+      margin-left: 10px;
+    }
+
+    #result {
+      white-space: pre-wrap;
+      /* 改行文字(\n)を改行として表示する設定 */
+    }
+
+    .highlight {
+      font-weight: bold;
+      /* このクラスが指定された文字を太字にする */
+    }
+  </style>
+</head>
+
+<body>
+  <h1>イス配置シミュレータ</h1>
+  <p>
+    <strong>イベント会場のイス配置でお悩みですか？</strong><br>
+    このツールは、会場とイスのサイズ、イスの数を入力するとレイアウトを画像として出力します。
+  </p>
+  <h3>入力<span style="color: red; font-size: 70%;">（必須）</span></h3>
+  <p>会場のサイズ：<input id="hall_depth" placeholder="会場の奥行き (m)" value="30">m × <input id="hall_width" placeholder="会場の幅 (m)" value="20">m</p>
+  <p>イスのサイズ：<input id="chair_depth" placeholder="イスの奥行き (cm)" value="50">cm × <input id="chair_width" placeholder="イスの幅 (cm)" value="50">cm</p>
+  <p>必要なイスの数：<input id="num_chairs" placeholder="イスの数" value="400">脚</p>
+
+  <h3>通路のオプション</h3>
+  <p><input type="checkbox" id="add_side_aisles"> 左右の端に通路を設置する</p>
+  <p>
+    <label for="aisle_mode">通路のタイプ：</label>
+    <select id="aisle_mode" onchange="updateAisleSettings()">
+      <option value="none">通路なし</option>
+      <option value="every_n">〇脚おきに通路</option>
+      <option value="fixed_number">〇本の通路を均等配置</option>
+    </select>
+  </p>
+
+  <div id="aisle_settings_every_n" class="settings_panel">
+    <p>通路の間隔（横）：<input id="aisle_every_x" placeholder="通路の間隔（横）" value="3">脚おき</p>
+    <p>通路の間隔（縦）：<input id="aisle_every_y" placeholder="通路の間隔（縦）" value="3">脚おき</p>
+  </div>
+
+  <div id="aisle_settings_fixed_number" class="settings_panel">
+    <p>通路の本数（縦）：<input id="num_aisles_x" placeholder="縦通路の本数" value="1">本</p>
+    <p>通路の本数（横）：<input id="num_aisles_y" placeholder="横通路の本数" value="1">本</p>
+  </div>
+
+  <h3>その他のオプション</h3>
+  <p><input type="checkbox" id="zigzag_layout"> イスをジグザグに配置する</p>
+
+  <button onclick="sendData()">計算</button>
+
+  <p id="loading" style="display: none; font-weight: bold;">処理中…</p>
+  <p id="result"></p>
+  <img id="layoutImage" style="max-width: 100%; display: none;" />
+
+  <script>
+    function updateAisleSettings() { //メニュー変更すると実行されるメソッド
+      const mode = document.getElementById("aisle_mode").value; //モードを取得
+      const panel_every_n = document.getElementById("aisle_settings_every_n"); //「〇脚おきに通路」のp要素を取得
+      const panel_fixed_number = document.getElementById("aisle_settings_fixed_number"); //「〇本の通路を均等配置」のp要素を取得
+
+      //一度メニュー内容をリセット(非表示)に
+      panel_every_n.style.display = "none";
+      panel_fixed_number.style.display = "none";
+
+      //選ばれたメニューのみ非表示をブロック(表示)する
+      if (mode === "every_n") {
+        panel_every_n.style.display = "block";
+      } else if (mode === "fixed_number") {
+        panel_fixed_number.style.display = "block";
+      }
+    }
+
+    //ページの読み込みをしたらupdateAisleSettings()を実行するという命令
+    document.addEventListener("DOMContentLoaded", updateAisleSettings);
+
+    async function sendData() { //「計算」を押すと実行されるメソッド
+      // ▼▼▼ ここから変更 ▼▼▼
+      const loadingMessage = document.getElementById("loading");
+      const resultDisplay = document.getElementById("result");
+      const imageDisplay = document.getElementById("layoutImage");
+
+      // 以前の結果をクリアし、「処理中」メッセージを表示
+      loadingMessage.style.display = "block";
+      resultDisplay.innerHTML = '';
+      imageDisplay.style.display = "none";
+      // ▲▲▲ ここまで変更 ▲▲▲
+
+      const mode = document.getElementById("aisle_mode").value; //モードを取得
+      const zigzag_checked = document.getElementById("zigzag_layout").checked; // ジグザグの有無を取得
+
+      const data = {
+        hall_width: parseFloat(document.getElementById("hall_width").value) * 100,
+        hall_depth: parseFloat(document.getElementById("hall_depth").value) * 100,
+        chair_width: parseInt(document.getElementById("chair_width").value),
+        chair_depth: parseInt(document.getElementById("chair_depth").value),
+        num_chairs: parseInt(document.getElementById("num_chairs").value),
+        aisle_mode: mode,
+        add_side_aisles: document.getElementById("add_side_aisles").checked,
+        zigzag_layout: zigzag_checked,
+      };
+
+      if (mode === "every_n") {
+        data.aisle_every_x = parseInt(document.getElementById("aisle_every_x").value);
+        data.aisle_every_y = parseInt(document.getElementById("aisle_every_y").value);
+      } else if (mode === "fixed_number") {
+        data.num_aisles_x = parseInt(document.getElementById("num_aisles_x").value);
+        data.num_aisles_y = parseInt(document.getElementById("num_aisles_y").value);
+      }
+
+      try { // try...finally を使って、成功・失敗に関わらず処理後にメッセージを消す
+        const response = await fetch("/calculate", { //Python側の@app.route("/calculate", ...)と対応している
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(data), //sendData()内で作ったdataを送っている
+        });
+
+        const result = await response.json(); //レスポンスの受け取り
+        const display = document.getElementById("result");
+        const image = document.getElementById("layoutImage");
+
+        display.innerHTML = '';
+
+        if (!result.image) { //イスを1脚も配置できなかった場合の処理
+          const strongText = document.createElement('span'); //spanという空タグを作成
+          strongText.className = 'highlight'; //spanタグ内にCSSクラスを追記
+          strongText.textContent = 'イスを1脚も配置できません！'; //タグの間に文字列を入れる
+          display.appendChild(strongText); //ここまで太字にしてきた部分を文字列に追加
+          display.appendChild(document.createTextNode('\n会場やイスのサイズを見直してください。')); //太字ではない部分を追加
+
+          image.style.display = "none";
+          return; //sendData()を終了
+        }
+
+        image.src = "data:image/png;base64," + result.image; //画像データの指定
+        image.style.display = "block"; //画像を表示
+
+        if (result.found) {
+          const strongText = document.createElement('span');
+          strongText.className = 'highlight';
+          strongText.textContent = '配置成功！';
+          display.appendChild(strongText);
+          display.appendChild(document.createTextNode(` ${result.total}脚のイスを配置しました。\n`));
+        } else {
+          const strongText1 = document.createElement('span');
+          strongText1.className = 'highlight';
+          strongText1.textContent = 'ご希望の数を配置できませんでした。';
+          display.appendChild(strongText1);
+
+          display.appendChild(document.createTextNode('\n現在の入力で配置できる最大数（'));
+
+          const strongText2 = document.createElement('span');
+          strongText2.className = 'highlight';
+          strongText2.textContent = `${result.max}脚`;
+          display.appendChild(strongText2);
+
+          display.appendChild(document.createTextNode('）のレイアウトを表示します。\n'));
+        }
+
+        //共通の情報を追加
+        display.appendChild(document.createTextNode(
+          `最大配置数： ${result.cols}列 × ${result.rows}行 = ${result.max}脚\n` +
+          `壁からの距離：横${result.offset_x}cm 縦${result.offset_y}cm\n` +
+          `間隔：横${result.spacing_x}cm 縦${result.spacing_y}cm`
+        ));
+
+        //ジグザグ配置が有効な場合、ズレの情報を追記
+        if (zigzag_checked && result.zigzag_offset > 0) {
+          display.appendChild(document.createTextNode(`\nジグザグのズレ：${result.zigzag_offset.toFixed(1)}cm`));
+        }
+      } catch (error) {
+        console.error("エラーが発生しました:", error);
+        resultDisplay.textContent = "エラーが発生しました。時間を置いて再度お試しください。";
+      } finally {
+        // ▼▼▼ ここから追加 ▼▼▼
+        // 処理が完了したら「処理中」メッセージを非表示にする
+        loadingMessage.style.display = "none";
+        // ▲▲▲ ここまで追加 ▲▲▲
+      }
+    }
+  </script>
+
+</body>
+
+</html>
