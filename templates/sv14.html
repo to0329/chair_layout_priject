@@ -274,7 +274,7 @@
             }
 
             // 縦方向の間隔を描画
-            if (data.rows > 1) {
+            if (data.rows > 1 && data.coords.length > data.cols) {
                 const chair1 = data.coords[0]; const chair2 = data.coords[data.cols];
                 const startY = chair1[1] + data.chair_depth; const endY = chair2[1];
                 const midX = chair1[0] + data.chair_width / 2;
