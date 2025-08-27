@@ -1,5 +1,5 @@
-#ファビコンの設定
-#サーバへのアクセス回数を1分間に20回に制限
+#画像生成をフロントで
+#壁やイスからの距離を表示
 from flask import Flask, request, jsonify, render_template, send_from_directory, Response
 from flask_cors import CORS #PythonとHTML間の通信
 from flask_limiter import Limiter
