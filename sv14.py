@@ -6,13 +6,18 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import matplotlib
 matplotlib.use('Agg') #AggはWebサーバなどのGUIのない環境でMatplotlibが使える
-import matplotlib.pyplot as plt #グラフ生成の命令を簡単に行う方法を指定
+# ▼▼▼ 変更 ▼▼▼
+# import matplotlib.pyplot as plt #グラフ生成の命令を簡単に行う方法を指定
+# ▲▲▲ 変更 ▲▲▲
 import io #図の一時的に保管するメモリを提供
 import base64 #画像データを文字にエンコードする
 import math #様々な数学計算が使えるライブラリ
 import matplotlib.ticker as mticker #目盛りをカスタマイズするためのライブラリ
 import os
 from whitenoise import WhiteNoise
+# ▼▼▼ 追加 ▼▼▼
+import json # キャッシュのキーを生成するために追加
+# ▲▲▲ 追加 ▲▲▲
 
 # ▼▼▼ 定数定義 ▼▼▼
 
@@ -59,6 +64,11 @@ limiter = Limiter(
     storage_uri=os.environ.get("REDIS_URL"), # 保存先をRenderのRedisに指定
     strategy="fixed-window" # Flask-Limiter推奨の設定
 )
+
+# ▼▼▼ 追加 ▼▼▼
+# 計算結果を一時保存するキャッシュ
+calculation_cache = {}
+# ▲▲▲ 追加 ▲▲▲
 
 # ▼▼▼ 関数群 ▼▼▼
 
@@ -154,42 +164,42 @@ def find_optimal_layout(params):
 
 
 #2-1最大列数・行数を計算
+# sv11.py (修正後)
 def _calculate_max_rows_cols(params, effective_hall_width, effective_hall_depth, space_x, space_y, additional_width):
     max_cols, max_rows = 0, 0
     aisle_mode = params["aisle_mode"]
     
     if aisle_mode == 'every_n':
         aisle_every_x = params["aisle_every_x"]
-        aisle_every_y = params["aisle_every_y"]
-        max_cols = 0
-        for c in range(1, MAX_COLS_ROWS_TO_CHECK):
-            num_aisles = (c - 1) // aisle_every_x if aisle_every_x > 0 else 0
-            tmp_total_w = c * space_x - (space_x - params["chair_width"]) + num_aisles * AISLE_WIDTH_CM + additional_width
-            if tmp_total_w > effective_hall_width: break
-            max_cols = c
-        for r in range(1, MAX_COLS_ROWS_TO_CHECK):
-            num_aisles = (r - 1) // aisle_every_y if aisle_every_y > 0 else 0
-            total_d = r * space_y - (space_y - params["chair_depth"]) + num_aisles * AISLE_WIDTH_CM
-            if total_d > effective_hall_depth: break
-            max_rows = r
+        if aisle_every_x > 0:
+            # 「イス(aisle_every_x)脚 + 通路1本」を1ブロックとして計算
+            block_width = aisle_every_x * space_x + AISLE_WIDTH_CM
+            num_blocks = math.floor(effective_hall_width / block_width) if block_width > 0 else 0
             
-        # every_nモードでも余りスペースをチェック
-        # 現在の列数・行数で実際に使用している幅と奥行きを再計算
-        num_aisles_x = (max_cols - 1) // aisle_every_x if aisle_every_x > 0 else 0
-        current_width = max_cols * space_x - (space_x - params["chair_width"]) + num_aisles_x * AISLE_WIDTH_CM + additional_width
-        rem_w = effective_hall_width - current_width
-        
-        num_aisles_y = (max_rows - 1) // aisle_every_y if aisle_every_y > 0 else 0
-        current_depth = max_rows * space_y - (space_y - params["chair_depth"]) + num_aisles_y * AISLE_WIDTH_CM
-        rem_d = effective_hall_depth - current_depth
+            # ブロックを置いた後の残りスペースを計算
+            remaining_width = effective_hall_width - num_blocks * block_width
+            
+            # 残りスペースに置けるイスの数を計算
+            extra_cols = math.floor(remaining_width / space_x) if space_x > 0 else 0
+            
+            # 合計の列数 = ブロック内のイス数 + 残りのイス数
+            max_cols = num_blocks * aisle_every_x + extra_cols
+        else: # 縦通路がない場合
+             max_cols = math.floor(effective_hall_width / space_x) if space_x > 0 else 0
 
-        # 余ったスペースに椅子を追加できるか判定（通路の追加は考慮しない単純なチェック）
-        if rem_w >= params["chair_width"]:
-            max_cols += 1
-        if rem_d >= params["chair_depth"]:
-            max_rows += 1
+        # 同じロジックを行（奥行き）にも適用
+        aisle_every_y = params["aisle_every_y"]
+        if aisle_every_y > 0:
+            block_depth = aisle_every_y * space_y + AISLE_WIDTH_CM
+            num_blocks = math.floor(effective_hall_depth / block_depth) if block_depth > 0 else 0
+            remaining_depth = effective_hall_depth - num_blocks * block_depth
+            extra_rows = math.floor(remaining_depth / space_y) if space_y > 0 else 0
+            max_rows = num_blocks * aisle_every_y + extra_rows
+        else: # 横通路がない場合
+            max_rows = math.floor(effective_hall_depth / space_y) if space_y > 0 else 0
 
     elif aisle_mode == 'fixed_number':
+        # (この部分は元から高速なため、修正不要)
         num_aisles_x = params["num_aisles_x"]
         num_aisles_y = params["num_aisles_y"]
         chair_area_width = effective_hall_width - num_aisles_x * AISLE_WIDTH_CM
@@ -198,33 +208,13 @@ def _calculate_max_rows_cols(params, effective_hall_width, effective_hall_depth,
             available_width = chair_area_width - additional_width
             max_cols = math.floor(available_width / space_x) if available_width > 0 else 0
             max_rows = math.floor(chair_area_depth / space_y)
-            
-            # 余ったスペースにもう1脚置けるかチェック
-            rem_w = available_width - (max_cols * space_x)
-            rem_d = chair_area_depth - (max_rows * space_y)
-
-            if rem_w >= params["chair_width"]:
-                max_cols += 1
-            if rem_d >= params["chair_depth"]:
-                max_rows += 1
-        else:
-            # イスが置けない場合は0を確実にする
-            max_cols, max_rows = 0, 0
 
     else: # aisle_mode == 'none'
+        # (この部分も元から高速なため、修正不要)
         available_width = effective_hall_width - additional_width
-        max_cols = math.floor(available_width / space_x)
-        max_rows = math.floor(effective_hall_depth / space_y)
-
-        # 余ったスペースにもう1脚置けるかチェック
-        rem_w = available_width - (max_cols * space_x)
-        rem_d = effective_hall_depth - (max_rows * space_y)
+        max_cols = math.floor(available_width / space_x) if space_x > 0 else 0
+        max_rows = math.floor(effective_hall_depth / space_y) if space_y > 0 else 0
         
-        if rem_w >= params["chair_width"]:
-            max_cols += 1
-        if rem_d >= params["chair_depth"]:
-            max_rows += 1
-
     return max_cols, max_rows
 
 #3-0.イスの座標を計算し、リストを作成
@@ -262,7 +252,9 @@ def calculate_chair_coordinates(params, layout_info):
     zigzag_offset_value = space_x / 2 if params["zigzag_layout"] else 0
 
     return {
-        "coords": coords, "offset_x": offset_x, "offset_y": offset_y, 
+        # ▼▼▼ 変更 ▼▼▼
+        "coords": coords, "offset_x": offset_x, "offset_y": offset_y, # "coords" はブラウザでの描画に使う
+        # ▲▲▲ 変更 ▲▲▲
         "total": total_chairs_to_draw, "zigzag_offset": zigzag_offset_value
     }
 
@@ -320,39 +312,50 @@ def _get_chair_position(params, layout_info, offset_x, offset_y, space_x, space_
     return x, y
 
 
-#4.座標を元にMatplotlibでレイアウト画像を生成
-def generate_layout_image(params, coords_data):
-    #▼▼画像生成▼▼
-    fig, ax = plt.subplots()
-    ax.set_aspect('equal')
-    ax.set_xlim(0, params["hall_width"])
-    ax.set_ylim(0, params["hall_depth"])
-    ax.set_title("Chair Layout")
-    ax.set_xlabel("width (m)") #単位をmに変更
-    ax.set_ylabel("depth (m)") #単位をmに変更
-
-    formatter = mticker.FuncFormatter(lambda x, pos: f'{x/100:.1f}')
-    ax.xaxis.set_major_formatter(formatter)
-    ax.yaxis.set_major_formatter(formatter)
-
-    ax.add_patch(plt.Rectangle((0, 0), params["hall_width"], params["hall_depth"], fill=False, edgecolor='black'))
-
-    for (x, y) in coords_data["coords"]:
-        ax.add_patch(plt.Rectangle((x, y), params["chair_width"], params["chair_depth"], facecolor='skyblue', edgecolor='gray'))
-
-    plt.gca().invert_yaxis() #y軸の反転
-    plt.tight_layout() #レイアウトの自動調整
-
-    buf = io.BytesIO()
-    plt.savefig(buf, format="png")
-    plt.close(fig)
-    buf.seek(0)
-    return base64.b64encode(buf.read()).decode("utf-8")
+# ▼▼▼ 変更 ▼▼▼
+# 【高速化②】この関数はブラウザで描画するため不要になります
+# def generate_layout_image(params, coords_data):
+#     #▼▼画像生成▼▼
+#     fig, ax = plt.subplots()
+#     ax.set_aspect('equal')
+#     ax.set_xlim(0, params["hall_width"])
+#     ax.set_ylim(0, params["hall_depth"])
+#     ax.set_title("Chair Layout")
+#     ax.set_xlabel("width (m)") #単位をmに変更
+#     ax.set_ylabel("depth (m)") #単位をmに変更
+# 
+#     formatter = mticker.FuncFormatter(lambda x, pos: f'{x/100:.1f}')
+#     ax.xaxis.set_major_formatter(formatter)
+#     ax.yaxis.set_major_formatter(formatter)
+# 
+#     ax.add_patch(plt.Rectangle((0, 0), params["hall_width"], params["hall_depth"], fill=False, edgecolor='black'))
+# 
+#     for (x, y) in coords_data["coords"]:
+#         ax.add_patch(plt.Rectangle((x, y), params["chair_width"], params["chair_depth"], facecolor='skyblue', edgecolor='gray'))
+# 
+#     plt.gca().invert_yaxis() #y軸の反転
+#     plt.tight_layout() #レイアウトの自動調整
+# 
+#     buf = io.BytesIO()
+#     plt.savefig(buf, format="png")
+#     plt.close(fig)
+#     buf.seek(0)
+#     return base64.b64encode(buf.read()).decode("utf-8")
+# ▲▲▲ 変更 ▲▲▲
 
 
 #5.JSONレスポンスを組み立てる
-def create_json_response(params, layout_info, coords_data, image_base64):
+# ▼▼▼ 変更 ▼▼▼
+# 【高速化②】画像データを返さず、描画に必要なデータを返すように変更
+def create_json_response(params, layout_info, coords_data):
     return jsonify({
+        # --- ブラウザでの描画に必要な情報を追加 ---
+        "hall_width": params["hall_width"],
+        "hall_depth": params["hall_depth"],
+        "chair_width": params["chair_width"],
+        "chair_depth": params["chair_depth"],
+        "coords": coords_data["coords"], # イスの座標リスト
+        # ------------------------------------------
         "found": layout_info["found"],
         "cols": int(layout_info["cols"]),
         "rows": int(layout_info["rows"]),
@@ -360,17 +363,18 @@ def create_json_response(params, layout_info, coords_data, image_base64):
         "spacing_y": layout_info["spacing_y"],
         "total": coords_data["total"],
         "max": int(layout_info["max"]),
-        "image": image_base64,
+        # "image": image_base64, # imageキーは不要なので削除
         "offset_x": int(coords_data["offset_x"]),
         "offset_y": int(coords_data["offset_y"]),
         "zigzag_offset": coords_data["zigzag_offset"]
     })
+# ▲▲▲ 変更 ▲▲▲
 
 
 # ▼▼▼!! メイン関数 !!▼▼▼
 @app.route("/")
 def index():
-    return render_template("sv11.html")
+    return render_template("sv14.html")
 # robots.txtを提供するルート
 @app.route('/robots.txt')
 def robots_txt():
@@ -399,6 +403,15 @@ def sitemap():
 
 @app.route("/calculate", methods=["POST"])
 def calculate():
+    # ▼▼▼ 追加 ▼▼▼
+    # 【高速化③】キャッシュ機能を追加
+    # 入力データからキャッシュ用のキーを生成
+    cache_key = json.dumps(request.json, sort_keys=True)
+    # もしキャッシュに同じ結果があれば、計算せずに即座に返す
+    if cache_key in calculation_cache:
+        return calculation_cache[cache_key]
+    # ▲▲▲ 追加 ▲▲▲
+    
     try:
         #1.データを受け取り、問題があるか確認
         params = parse_and_validate_input(request.json)
@@ -408,16 +421,25 @@ def calculate():
 
         #イスが1脚も置けない場合は、ここで処理を終了
         if not best_layout:
-            return jsonify({"found": False, "max": 0, "image": None})
+            # ▼▼▼ 変更 ▼▼▼
+            return jsonify({"found": False, "max": 0, "coords": []}) # image: None の代わりに coords: [] を返す
+            # ▲▲▲ 変更 ▲▲▲
 
         #3.イスの座標を計算して、リストを作成
         coords_data = calculate_chair_coordinates(params, final_layout)
 
-        #4.座標を元にMatplotlibでレイアウト画像を生成
-        image_base64 = generate_layout_image(params, coords_data)
+        # ▼▼▼ 変更 ▼▼▼
+        # 【高速化②】画像生成処理を削除
+        # image_base64 = generate_layout_image(params, coords_data)
 
         #5.JSONレスポンスを組み立てる
-        return create_json_response(params, final_layout, coords_data, image_base64)
+        response = create_json_response(params, final_layout, coords_data)
+        
+        # 【高速化③】結果を返す前にキャッシュに保存
+        calculation_cache[cache_key] = response
+        
+        return response
+        # ▲▲▲ 変更 ▲▲▲
 
     except ValueError as e:
         # バリデーションエラーなど、予期されるエラーの処理

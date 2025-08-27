@@ -4,8 +4,7 @@
   <meta charset="utf-8">
   <title>イス配置シミュレータ | イベント会場の座席数を自動計算</title>
 
-  <meta name="google-site-verification" content="AXz5_dUosCYMj6jNapTpVmyEFWeTlV46AcrwSXdQCn0" /> <!--SEOで見つけてもらいやすく-->
-  <meta name="description" content="無料で使えるイス配置シミュレータ。会場とイスのサイズ、イスの数を入力するだけで、レイアウト図を自動作成。イベントの準備に最適です。">
+  <meta name="google-site-verification" content="AXz5_dUosCYMj6jNapTpVmyEFWeTlV46AcrwSXdQCn0" /> <meta name="description" content="無料で使えるイス配置シミュレータ。会場とイスのサイズ、イスの数を入力するだけで、レイアウト図を自動作成。イベントの準備に最適です。">
 
   <link rel="canonical" href="https://chair-layout.onrender.com"> <meta property="og:url" content="https://chair-layout.onrender.com"> <meta property="og:type" content="website">
   <meta property="og:title" content="イス配置シミュレータ | イベント会場の座席数を自動計算">
@@ -71,8 +70,7 @@
 
   <p id="loading" style="display: none; font-weight: bold;">処理中…</p>
   <p id="result"></p>
-  <img id="layoutImage" style="max-width: 100%; display: none;" />
-
+  <canvas id="layoutCanvas" style="max-width: 100%; border: 1px solid black; display: none;"></canvas>
   <script>
     function updateAisleSettings() { //メニュー変更すると実行されるメソッド
       const mode = document.getElementById("aisle_mode").value; //モードを取得
@@ -95,16 +93,20 @@
     document.addEventListener("DOMContentLoaded", updateAisleSettings);
 
     async function sendData() { //「計算」を押すと実行されるメソッド
-      // ▼▼▼ ここから変更 ▼▼▼
+      // ▼▼▼ 変更（ID取得部分のみ） ▼▼▼
       const loadingMessage = document.getElementById("loading");
       const resultDisplay = document.getElementById("result");
-      const imageDisplay = document.getElementById("layoutImage");
+      // const imageDisplay = document.getElementById("layoutImage"); // 不要になったのでコメントアウト
+      const canvasDisplay = document.getElementById("layoutCanvas"); // canvasを取得
+      // ▲▲▲ 変更 ▲▲▲
 
       // 以前の結果をクリアし、「処理中」メッセージを表示
       loadingMessage.style.display = "block";
       resultDisplay.innerHTML = '';
-      imageDisplay.style.display = "none";
-      // ▲▲▲ ここまで変更 ▲▲▲
+      // ▼▼▼ 変更 ▼▼▼
+      // imageDisplay.style.display = "none";
+      canvasDisplay.style.display = "none"; // canvasを非表示に
+      // ▲▲▲ 変更 ▲▲▲
 
       const mode = document.getElementById("aisle_mode").value; //モードを取得
       const zigzag_checked = document.getElementById("zigzag_layout").checked; // ジグザグの有無を取得
@@ -139,23 +141,28 @@
 
         const result = await response.json(); //レスポンスの受け取り
         const display = document.getElementById("result");
-        const image = document.getElementById("layoutImage");
+        // const image = document.getElementById("layoutImage"); // 不要
 
         display.innerHTML = '';
 
-        if (!result.image) { //イスを1脚も配置できなかった場合の処理
+        // ▼▼▼ 変更 ▼▼▼
+        // 【高速化②】サーバーから送られてくる画像(image)の代わりに座標データ(coords)をチェックする
+        if (!result.coords || result.coords.length === 0) { //イスを1脚も配置できなかった場合の処理
           const strongText = document.createElement('span'); //spanという空タグを作成
           strongText.className = 'highlight'; //spanタグ内にCSSクラスを追記
           strongText.textContent = 'イスを1脚も配置できません！'; //タグの間に文字列を入れる
           display.appendChild(strongText); //ここまで太字にしてきた部分を文字列に追加
           display.appendChild(document.createTextNode('\n会場やイスのサイズを見直してください。')); //太字ではない部分を追加
 
-          image.style.display = "none";
+          // image.style.display = "none"; // 不要
           return; //sendData()を終了
         }
 
-        image.src = "data:image/png;base64," + result.image; //画像データの指定
-        image.style.display = "block"; //画像を表示
+        // image.src = "data:image/png;base64," + result.image; //画像データの指定
+        // image.style.display = "block"; //画像を表示
+        // 代わりに、新しい描画関数を呼び出す
+        drawLayout(result);
+        // ▲▲▲ 変更 ▲▲▲
 
         if (result.found) {
           const strongText = document.createElement('span');
@@ -200,6 +207,44 @@
         // ▲▲▲ ここまで追加 ▲▲▲
       }
     }
+
+    // ▼▼▼ 追加 ▼▼▼
+    /**
+     * 【高速化②】サーバーから受け取ったデータをもとにCanvasにレイアウト図を描画する新しい関数
+     * @param {object} data サーバーからのレスポンスデータ
+     */
+    function drawLayout(data) {
+        const canvas = document.getElementById("layoutCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Canvasの内部的な解像度を会場のサイズ（cm単位）に合わせることで、鮮明な描画を行う
+        canvas.width = data.hall_width;
+        canvas.height = data.hall_depth;
+        canvas.style.display = "block"; // canvasを表示状態にする
+
+        // 前回の描画が残っている可能性があるので、一度全体をクリアする
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 会場の外枠を描画
+        ctx.strokeStyle = 'black'; // 線の色
+        ctx.lineWidth = 5;       // 線の太さ
+        ctx.strokeRect(0, 0, data.hall_width, data.hall_depth);
+
+        // イスの描画スタイルを設定
+        ctx.fillStyle = 'skyblue';   // 塗りの色
+        ctx.strokeStyle = 'gray';    // 枠線の色
+        ctx.lineWidth = 1;         // 枠線の太さ
+
+        // サーバーから受け取ったすべてのイスの座標(data.coords)を一つずつ取り出して描画
+        data.coords.forEach(coord => {
+            const [x, y] = coord; // 座標 [x, y] を取得
+            // 四角形を塗りつぶす (fill)
+            ctx.fillRect(x, y, data.chair_width, data.chair_depth);
+            // 四角形の枠線を描く (stroke)
+            ctx.strokeRect(x, y, data.chair_width, data.chair_depth);
+        });
+    }
+    // ▲▲▲ 追加 ▲▲▲
   </script>
 
 </body>
