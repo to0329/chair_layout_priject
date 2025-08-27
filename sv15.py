@@ -1,6 +1,4 @@
-#画像生成をフロントで
-#壁やイスからの距離を表示
-#アイフォンでファビコンを表示
+#共有時に画像表示
 from flask import Flask, request, jsonify, render_template, send_from_directory, Response
 from flask_cors import CORS #PythonとHTML間の通信
 from flask_limiter import Limiter
@@ -23,9 +21,9 @@ import json # キャッシュのキーを生成するために追加
 # ▼▼▼ 定数定義 ▼▼▼
 
 # --- バリデーション（入力値の制限） ---
-MAX_HALL_DIMENSION_CM = 35000 #会場の最大サイズ (350m)
+MAX_HALL_DIMENSION_CM = 15000 #会場の最大サイズ (150m)
 MAX_CHAIR_DIMENSION_CM = 500  #イスの最大サイズ (5m)
-MAX_CHAIR_COUNT = 100000      #イスの最大数（10万脚）
+MAX_CHAIR_COUNT = 50000      #イスの最大数（5万脚）
 
 # --- レイアウト計算 ---
 MIN_SPACING_X_CM = 20  #イスの最小横間隔 (20cm)
@@ -60,7 +58,7 @@ CORS(app, resources={r"/calculate": {"origins": allowed_origins}})
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
-    default_limits=["20 per minute"],
+    default_limits=["100 per minute"],
     # ▼▼▼ 以下の2行を追加 ▼▼▼
     storage_uri=os.environ.get("REDIS_URL"), # 保存先をRenderのRedisに指定
     strategy="fixed-window" # Flask-Limiter推奨の設定
