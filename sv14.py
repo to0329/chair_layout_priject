@@ -164,7 +164,6 @@ def find_optimal_layout(params):
 
 
 #2-1最大列数・行数を計算
-# sv11.py (修正後)
 def _calculate_max_rows_cols(params, effective_hall_width, effective_hall_depth, space_x, space_y, additional_width):
     max_cols, max_rows = 0, 0
     aisle_mode = params["aisle_mode"]
@@ -179,10 +178,10 @@ def _calculate_max_rows_cols(params, effective_hall_width, effective_hall_depth,
             # ブロックを置いた後の残りスペースを計算
             remaining_width = effective_hall_width - num_blocks * block_width
             
-            # 残りスペースに置けるイスの数を計算
+            # 残りスペースに置けるイスの数を計算（通路は考慮しない）
             extra_cols = math.floor(remaining_width / space_x) if space_x > 0 else 0
             
-            # 合計の列数 = ブロック内のイス数 + 残りのイス数
+            # 合計の列数 = (ブロック内のイス数) + (残りスペースのイス数)
             max_cols = num_blocks * aisle_every_x + extra_cols
         else: # 縦通路がない場合
              max_cols = math.floor(effective_hall_width / space_x) if space_x > 0 else 0
@@ -199,24 +198,30 @@ def _calculate_max_rows_cols(params, effective_hall_width, effective_hall_depth,
             max_rows = math.floor(effective_hall_depth / space_y) if space_y > 0 else 0
 
     elif aisle_mode == 'fixed_number':
-        # (この部分は元から高速なため、修正不要)
         num_aisles_x = params["num_aisles_x"]
         num_aisles_y = params["num_aisles_y"]
         chair_area_width = effective_hall_width - num_aisles_x * AISLE_WIDTH_CM
         chair_area_depth = effective_hall_depth - num_aisles_y * AISLE_WIDTH_CM
+        
         if chair_area_width > 0 and chair_area_depth > 0:
             available_width = chair_area_width - additional_width
-            max_cols = math.floor(available_width / space_x) if available_width > 0 else 0
-            max_rows = math.floor(chair_area_depth / space_y)
-
+            # ▼▼▼ 変更 ▼▼▼
+            # イスが占めるスペース(space_x)ではなく、イス自体の幅(chair_width)で計算する
+            max_cols = math.floor((available_width + (space_x - params["chair_width"])) / space_x) if space_x > 0 else 0
+            max_rows = math.floor((chair_area_depth + (space_y - params["chair_depth"])) / space_y) if space_y > 0 else 0
+            # ▲▲▲ 変更 ▲▲▲
+        else:
+            max_cols, max_rows = 0, 0
+            
     else: # aisle_mode == 'none'
-        # (この部分も元から高速なため、修正不要)
         available_width = effective_hall_width - additional_width
-        max_cols = math.floor(available_width / space_x) if space_x > 0 else 0
-        max_rows = math.floor(effective_hall_depth / space_y) if space_y > 0 else 0
+        # ▼▼▼ 変更 ▼▼▼
+        # fixed_numberモードと同様に、最後のイスの間隔分を考慮して計算する
+        max_cols = math.floor((available_width + (space_x - params["chair_width"])) / space_x) if space_x > 0 else 0
+        max_rows = math.floor((effective_hall_depth + (space_y - params["chair_depth"])) / space_y) if space_y > 0 else 0
+        # ▲▲▲ 変更 ▲▲▲
         
     return max_cols, max_rows
-
 #3-0.イスの座標を計算し、リストを作成
 def calculate_chair_coordinates(params, layout_info):
     coords = [] #座標の入れ物
