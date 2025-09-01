@@ -1,4 +1,5 @@
 #共有時に画像表示
+#入力の上限を150mと5万脚に変更＆が像サイズを500pxに
 from flask import Flask, request, jsonify, render_template, send_from_directory, Response
 from flask_cors import CORS #PythonとHTML間の通信
 from flask_limiter import Limiter
@@ -26,9 +27,11 @@ MAX_CHAIR_DIMENSION_CM = 500  #イスの最大サイズ (5m)
 MAX_CHAIR_COUNT = 50000      #イスの最大数（5万脚）
 
 # --- レイアウト計算 ---
-MIN_SPACING_X_CM = 20  #イスの最小横間隔 (20cm)
-MIN_SPACING_Y_CM = 100 #イスの最小縦間隔 (100cm) 兼 最前列の通路幅
+# ▼▼▼ 変更: イスの最小間隔と最前列通路幅はHTMLから指定するため、ここの定数定義を削除 ▼▼▼
+# MIN_SPACING_X_CM = 20  #イスの最小横間隔 (20cm)
+# MIN_SPACING_Y_CM = 100 #イスの最小縦間隔 (100cm) 兼 最前列の通路幅
 AISLE_WIDTH_CM = 100   #通路の幅 (100cm)
+# ▲▲▲ 変更 ▲▲▲
 
 # --- 探索アルゴリズム ---
 MAX_SPACING_SEARCH_CM = 100    #間隔を探す際の最大値 (cm)
@@ -87,6 +90,11 @@ def parse_and_validate_input(data):
             "aisle_every_y": data.get("aisle_every_y", LARGE_DEFAULT_AISLE_INTERVAL),
             "num_aisles_x": data.get("num_aisles_x", 0),
             "num_aisles_y": data.get("num_aisles_y", 0),
+            # ▼▼▼ 追加: HTMLから送信された新しいオプションをデータから取得し、整数に変換 ▼▼▼
+            "front_aisle_width": int(data.get("front_aisle_width", 100)),
+            "min_spacing_x": int(data.get("min_spacing_x", 20)),
+            "min_spacing_y": int(data.get("min_spacing_y", 100)),
+            # ▲▲▲ 追加 ▲▲▲
         }
 
         # 値の範囲チェック
@@ -96,6 +104,15 @@ def parse_and_validate_input(data):
             raise ValueError(f"イスのサイズは0より大きく、{MAX_CHAIR_DIMENSION_CM}cm以下にしてください。")
         if not (0 < params["num_chairs"] <= MAX_CHAIR_COUNT):
             raise ValueError(f"イスの数は0より大きく、{MAX_CHAIR_COUNT:,}脚以下にしてください。")
+        
+        # ▼▼▼ 追加: 新しいオプション項目に対するバリデーション（入力値の検証）を追加 ▼▼▼
+        if not (0 <= params["front_aisle_width"] <= MAX_HALL_DIMENSION_CM):
+            raise ValueError(f"最前列の通路幅は0以上、会場サイズ（{MAX_HALL_DIMENSION_CM / 100}m）以下にしてください。")
+        if not (0 <= params["min_spacing_x"] <= MAX_CHAIR_DIMENSION_CM):
+            raise ValueError(f"イスの横間隔は0以上、イスのサイズ（{MAX_CHAIR_DIMENSION_CM}cm）以下にしてください。")
+        if not (0 <= params["min_spacing_y"] <= MAX_CHAIR_DIMENSION_CM):
+            raise ValueError(f"イスの縦間隔は0以上、イスのサイズ（{MAX_CHAIR_DIMENSION_CM}cm）以下にしてください。")
+        # ▲▲▲ 追加 ▲▲▲
         
         return params
     except (KeyError, TypeError, ValueError) as e:
@@ -111,8 +128,10 @@ def find_optimal_layout(params):
     final_layout = {}
 
     #最大脚数を求めるループ
-    for spacing_x in range(MIN_SPACING_X_CM, MAX_SPACING_SEARCH_CM + 1, SPACING_SEARCH_STEP_CM):
-        for spacing_y in range(MIN_SPACING_Y_CM, MAX_SPACING_SEARCH_CM + 1, SPACING_SEARCH_STEP_CM):
+    # ▼▼▼ 変更: イス間隔のループ開始値を、HTMLから受け取った最小値（min_spacing_x, min_spacing_y）に変更 ▼▼▼
+    for spacing_x in range(params["min_spacing_x"], MAX_SPACING_SEARCH_CM + 1, SPACING_SEARCH_STEP_CM):
+        for spacing_y in range(params["min_spacing_y"], MAX_SPACING_SEARCH_CM + 1, SPACING_SEARCH_STEP_CM):
+    # ▲▲▲ 変更 ▲▲▲
             #1人分のスペース＝イスの大きさ＋イスの間隔
             space_x = params["chair_width"] + spacing_x
             space_y = params["chair_depth"] + spacing_y
@@ -127,8 +146,9 @@ def find_optimal_layout(params):
                 effective_hall_width -= AISLE_WIDTH_CM * 2 #会場の幅を通路2つ分小さく
             if effective_hall_width <= 0: continue #通路を設置して会場がマイナスになる場合、ループの次の回へ
 
-            #最前列の通路を確保
-            effective_hall_depth = params["hall_depth"] - MIN_SPACING_Y_CM
+            # ▼▼▼ 変更: 最前列の通路を確保する際、HTMLから受け取った通路幅（front_aisle_width）を使用 ▼▼▼
+            effective_hall_depth = params["hall_depth"] - params["front_aisle_width"]
+            # ▲▲▲ 変更 ▲▲▲
             if effective_hall_depth <= 0: continue
 
             max_cols, max_rows = _calculate_max_rows_cols(
@@ -239,7 +259,9 @@ def calculate_chair_coordinates(params, layout_info):
         offset_x = AISLE_WIDTH_CM + (chair_area_width - total_layout_width) / 2 #x座標の開始位置
     else:
         offset_x = (params["hall_width"] - total_layout_width) / 2
-    offset_y = MIN_SPACING_Y_CM #y座標の開始位置
+    # ▼▼▼ 変更: y座標の開始位置を、HTMLから受け取った最前列の通路幅（front_aisle_width）に変更 ▼▼▼
+    offset_y = params["front_aisle_width"] #y座標の開始位置
+    # ▲▲▲ 変更 ▲▲▲
 
     total_chairs_to_draw = min(params["num_chairs"], layout_info["max"]) if layout_info["found"] else layout_info["max"]
     

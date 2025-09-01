@@ -52,6 +52,7 @@
   <p>必要なイスの数：<input id="num_chairs" placeholder="イスの数" value="400">脚</p>
 
   <h3>通路のオプション</h3>
+  <p>最前列の通路の幅：<input id="front_aisle_width" placeholder="最前列の通路の幅 (cm)" value="100">cm</p>
   <p><input type="checkbox" id="add_side_aisles"> 左右の端に通路を設置する</p>
   <p>
     <label for="aisle_mode">通路のタイプ：</label>
@@ -73,6 +74,7 @@
   </div>
 
   <h3>その他のオプション</h3>
+  <p>イス同士の最低の間隔（縦・横）：<input id="min_spacing_y" placeholder="縦の間隔 (cm)" value="100">cm × <input id="min_spacing_x" placeholder="横の間隔 (cm)" value="20">cm</p>
   <p><input type="checkbox" id="zigzag_layout"> イスをジグザグに配置する</p>
 
   <button onclick="sendData()">計算</button>
@@ -129,6 +131,11 @@
         aisle_mode: mode,
         add_side_aisles: document.getElementById("add_side_aisles").checked,
         zigzag_layout: zigzag_checked,
+        // ▼▼▼ 追加: 新しいオプションの値を取得して送信データに含める ▼▼▼
+        front_aisle_width: parseInt(document.getElementById("front_aisle_width").value),
+        min_spacing_x: parseInt(document.getElementById("min_spacing_x").value),
+        min_spacing_y: parseInt(document.getElementById("min_spacing_y").value),
+        // ▲▲▲ 追加 ▲▲▲
       };
 
       if (mode === "every_n") {
