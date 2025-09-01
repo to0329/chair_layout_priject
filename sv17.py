@@ -1,5 +1,4 @@
-#共有時に画像表示
-#入力の上限を150mと5万脚に変更＆が像サイズを500pxに
+#イスや壁との間隔をユーザ入力に
 from flask import Flask, request, jsonify, render_template, send_from_directory, Response
 from flask_cors import CORS #PythonとHTML間の通信
 from flask_limiter import Limiter
@@ -400,7 +399,7 @@ def create_json_response(params, layout_info, coords_data):
 # ▼▼▼!! メイン関数 !!▼▼▼
 @app.route("/")
 def index():
-    return render_template("sv16.html")
+    return render_template("sv17.html")
 # robots.txtを提供するルート
 @app.route('/robots.txt')
 def robots_txt():

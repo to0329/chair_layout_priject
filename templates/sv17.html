@@ -37,52 +37,84 @@
       font-weight: bold;
       /* このクラスが指定された文字を太字にする */
     }
+
+    /* ▼▼▼ 2画面レイアウトのためのCSSを追加 ▼▼▼ */
+    .layout-container {
+      display: flex; /* Flexboxを有効にし、子要素を横並びにする */
+      gap: 24px;     /* 左右のカラム間の隙間を設定 */
+    }
+
+    .input-panel {
+      width: 50%; /* 左カラムの幅を全体の50%に */
+      padding-right: 24px; /* 右カラムとの境界が分かりやすくなるように余白を追加 */
+      border-right: 1px solid #ccc; /* 右側に境界線を追加 */
+    }
+
+    .output-panel {
+      width: 50%; /* 右カラムの幅を全体の50%に */
+    }
+
+    /* スマートフォンなど画面幅が狭い場合の表示設定 */
+    @media (max-width: 800px) {
+      .layout-container {
+        flex-direction: column; /* 横並びから縦並びに変更 */
+      }
+      .input-panel, .output-panel {
+        width: 100%; /* 各カラムの幅を100%に戻す */
+        border-right: none; /* 縦並びの際は境界線を削除 */
+        padding-right: 0;
+      }
+    }
+    /* ▲▲▲ ここまで追加 ▲▲▲ */
   </style>
 </head>
 
 <body>
-  <h1>イス配置シミュレータ</h1>
-  <p>
-    <strong>イベント会場のイス配置でお悩みですか？</strong><br>
-    このツールは、会場とイスのサイズ、イスの数を入力するとレイアウトを画像として出力します。
-  </p>
-  <h3>入力<span style="color: red; font-size: 70%;">（必須）</span></h3>
-  <p>会場のサイズ：<input id="hall_depth" placeholder="会場の奥行き (m)" value="30">m × <input id="hall_width" placeholder="会場の幅 (m)" value="20">m</p>
-  <p>イスのサイズ：<input id="chair_depth" placeholder="イスの奥行き (cm)" value="50">cm × <input id="chair_width" placeholder="イスの幅 (cm)" value="50">cm</p>
-  <p>必要なイスの数：<input id="num_chairs" placeholder="イスの数" value="400">脚</p>
+  <div class="layout-container">
 
-  <h3>通路のオプション</h3>
-  <p>最前列の通路の幅：<input id="front_aisle_width" placeholder="最前列の通路の幅 (cm)" value="100">cm</p>
-  <p><input type="checkbox" id="add_side_aisles"> 左右の端に通路を設置する</p>
-  <p>
-    <label for="aisle_mode">通路のタイプ：</label>
-    <select id="aisle_mode" onchange="updateAisleSettings()">
-      <option value="none">通路なし</option>
-      <option value="every_n">〇脚おきに通路</option>
-      <option value="fixed_number">〇本の通路を均等配置</option>
-    </select>
-  </p>
+    <div class="input-panel">
+      <h1>イス配置シミュレータ</h1>
+      <p>
+        <strong>イベント会場のイス配置でお悩みですか？</strong><br>
+        このツールは、会場とイスのサイズ、イスの数を入力するとレイアウトを画像として出力します。
+      </p>
+      <h3>入力<span style="color: red; font-size: 70%;">（必須）</span></h3>
+      <p>会場のサイズ：<input id="hall_depth" placeholder="会場の奥行き (m)" value="30">m × <input id="hall_width" placeholder="会場の幅 (m)" value="20">m</p>
+      <p>イスのサイズ：<input id="chair_depth" placeholder="イスの奥行き (cm)" value="50">cm × <input id="chair_width" placeholder="イスの幅 (cm)" value="50">cm</p>
+      <p>必要なイスの数：<input id="num_chairs" placeholder="イスの数" value="400">脚</p>
 
-  <div id="aisle_settings_every_n" class="settings_panel">
-    <p>通路の間隔（横）：<input id="aisle_every_x" placeholder="通路の間隔（横）" value="3">脚おき</p>
-    <p>通路の間隔（縦）：<input id="aisle_every_y" placeholder="通路の間隔（縦）" value="3">脚おき</p>
-  </div>
+      <h3>通路のオプション</h3>
+      <p>最前列の通路の幅：<input id="front_aisle_width" placeholder="最前列の通路の幅 (cm)" value="100">cm</p>
+      <p><input type="checkbox" id="add_side_aisles"> 左右の端に通路を設置する</p>
+      <p>
+        <label for="aisle_mode">通路のタイプ：</label>
+        <select id="aisle_mode" onchange="updateAisleSettings()">
+          <option value="none">通路なし</option>
+          <option value="every_n">〇脚おきに通路</option>
+          <option value="fixed_number">〇本の通路を均等配置</option>
+        </select>
+      </p>
 
-  <div id="aisle_settings_fixed_number" class="settings_panel">
-    <p>通路の本数（縦）：<input id="num_aisles_x" placeholder="縦通路の本数" value="1">本</p>
-    <p>通路の本数（横）：<input id="num_aisles_y" placeholder="横通路の本数" value="1">本</p>
-  </div>
+      <div id="aisle_settings_every_n" class="settings_panel">
+        <p>通路の間隔（横）：<input id="aisle_every_x" placeholder="通路の間隔（横）" value="3">脚おき</p>
+        <p>通路の間隔（縦）：<input id="aisle_every_y" placeholder="通路の間隔（縦）" value="3">脚おき</p>
+      </div>
 
-  <h3>その他のオプション</h3>
-  <p>イス同士の最低の間隔（縦・横）：<input id="min_spacing_y" placeholder="縦の間隔 (cm)" value="100">cm × <input id="min_spacing_x" placeholder="横の間隔 (cm)" value="20">cm</p>
-  <p><input type="checkbox" id="zigzag_layout"> イスをジグザグに配置する</p>
+      <div id="aisle_settings_fixed_number" class="settings_panel">
+        <p>通路の本数（縦）：<input id="num_aisles_x" placeholder="縦通路の本数" value="1">本</p>
+        <p>通路の本数（横）：<input id="num_aisles_y" placeholder="横通路の本数" value="1">本</p>
+      </div>
 
-  <button onclick="sendData()">計算</button>
+      <h3>その他のオプション</h3>
+      <p>イス同士の最低の間隔（縦・横）：<input id="min_spacing_y" placeholder="縦の間隔 (cm)" value="100">cm × <input id="min_spacing_x" placeholder="横の間隔 (cm)" value="20">cm</p>
+      <p><input type="checkbox" id="zigzag_layout"> イスをジグザグに配置する</p>
 
-  <p id="loading" style="display: none; font-weight: bold;">処理中…</p>
-  <p id="result"></p>
-  <canvas id="layoutCanvas" style="max-width: 500px; width: 100%; border: 1px solid black; display: none;"></canvas>
-  <script>
+      <button onclick="sendData()">計算</button>
+    </div><div class="output-panel">
+      <p id="loading" style="display: none; font-weight: bold;">処理中…</p>
+      <p id="result"></p>
+      <canvas id="layoutCanvas" style="max-width: 100%; width: 100%; border: 1px solid black; display: none;"></canvas>
+    </div></div><script>
     function updateAisleSettings() { //メニュー変更すると実行されるメソッド
       const mode = document.getElementById("aisle_mode").value; //モードを取得
       const panel_every_n = document.getElementById("aisle_settings_every_n"); //「〇脚おきに通路」のp要素を取得
