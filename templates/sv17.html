@@ -19,7 +19,27 @@
   
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='logo_180x180.png', _external=True) }}">
 
-  <style>    /*.settings_panelは、class="settings_panel"と指定されたものに、{ }の中を適用すること*/
+  <style>
+    /* ▼▼▼ 全体的なフォントサイズを小さく調整 ▼▼▼ */
+    body {
+      font-size: 14px; /* 全体のベースフォントサイズを小さく */
+      line-height: 1.6; /* 行の高さを調整し、読みやすくする */
+    }
+
+    h1 {
+      font-size: 24px; /* h1のフォントサイズを調整 */
+    }
+
+    h3 {
+      font-size: 18px; /* h3のフォントサイズを調整 */
+    }
+
+    p {
+      margin-bottom: 8px; /* 段落間の余白を調整 */
+    }
+    /* ▲▲▲ ここまで ▲▲▲ */
+
+    /*.settings_panelは、class="settings_panel"と指定されたものに、{ }の中を適用すること*/
     .settings_panel {
       display: none;
       border-left: 2px solid #696969;
@@ -37,8 +57,29 @@
       font-weight: bold;
       /* このクラスが指定された文字を太字にする */
     }
+    
+    /* ▼▼▼ 計算ボタンのスタイルを追加 ▼▼▼ */
+    .calc-button {
+      display: block; /* ボタンをブロック要素にして幅を100%にする */
+      width: 100%;
+      font-size: 18px; /* フォントサイズを大きく */
+      font-weight: bold; /* フォントを太字に */
+      color: white; /* 文字色を白に */
+      background-color: #007bff; /* 背景色を青に */
+      border: none; /* 枠線を削除 */
+      padding: 12px 0; /* 上下の余白を大きく */
+      border-radius: 5px; /* 角を少し丸くする */
+      cursor: pointer; /* マウスカーソルを指の形に */
+      margin-top: 20px; /* 上に少し余白を追加 */
+      transition: background-color 0.2s; /* 背景色の変化を滑らかに */
+    }
 
-    /* ▼▼▼ 2画面レイアウトのためのCSSを追加 ▼▼▼ */
+    .calc-button:hover {
+      background-color: #0056b3; /* マウスが乗った時に少し濃い青に */
+    }
+    /* ▲▲▲ ここまで追加 ▲▲▲ */
+
+    /* ▼▼▼ 2画面レイアウトのためのCSS (変更なし) ▼▼▼ */
     .layout-container {
       display: flex; /* Flexboxを有効にし、子要素を横並びにする */
       gap: 24px;     /* 左右のカラム間の隙間を設定 */
@@ -65,7 +106,7 @@
         padding-right: 0;
       }
     }
-    /* ▲▲▲ ここまで追加 ▲▲▲ */
+    /* ▲▲▲ ここまで ▲▲▲ */
   </style>
 </head>
 
@@ -108,13 +149,16 @@
       <h3>その他のオプション</h3>
       <p>イス同士の最低の間隔（縦・横）：<input id="min_spacing_y" placeholder="縦の間隔 (cm)" value="100">cm × <input id="min_spacing_x" placeholder="横の間隔 (cm)" value="20">cm</p>
       <p><input type="checkbox" id="zigzag_layout"> イスをジグザグに配置する</p>
-
-      <button onclick="sendData()">計算</button>
-    </div><div class="output-panel">
+      
+      <button onclick="sendData()" class="calc-button">計算</button>
+    </div>
+    <div class="output-panel">
       <p id="loading" style="display: none; font-weight: bold;">処理中…</p>
       <p id="result"></p>
       <canvas id="layoutCanvas" style="max-width: 100%; width: 100%; border: 1px solid black; display: none;"></canvas>
-    </div></div><script>
+    </div>
+  </div>
+  <script>
     function updateAisleSettings() { //メニュー変更すると実行されるメソッド
       const mode = document.getElementById("aisle_mode").value; //モードを取得
       const panel_every_n = document.getElementById("aisle_settings_every_n"); //「〇脚おきに通路」のp要素を取得
@@ -256,7 +300,7 @@
       }
     }
 
-    // ▼▼▼ 追加 ▼▼▼
+    // ▼▼▼ 変更なし ▼▼▼
     /**
      * 【高速化②】サーバーから受け取ったデータをもとにCanvasにレイアウト図を描画する新しい関数
      * @param {object} data サーバーからのレスポンスデータ
@@ -290,7 +334,6 @@
             ctx.strokeRect(x, y, data.chair_width, data.chair_depth);
         });
         
-        // ▼▼▼ここから修正▼▼▼
         // イスが1脚もなければ、ここで処理を終了する
         if (data.coords.length === 0) {
             return;
@@ -301,7 +344,8 @@
         ctx.fillStyle = '#d33'; // テキストの色を赤に
         ctx.strokeStyle = '#d33'; // 線の色を赤に
         ctx.lineWidth = 2;
-        const fontSize = Math.max(12, Math.min(data.chair_width, data.chair_depth) * 0.3);
+        // フォントサイズを小さく調整 (最小値を10pxに設定)
+        const fontSize = Math.max(10, Math.min(data.chair_width, data.chair_depth) * 0.2);
         ctx.font = `bold ${fontSize}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
