@@ -400,7 +400,7 @@ def create_json_response(params, layout_info, coords_data):
 # ▼▼▼!! メイン関数 !!▼▼▼
 @app.route("/")
 def index():
-    return render_template("sv15.html")
+    return render_template("sv16.html")
 # robots.txtを提供するルート
 @app.route('/robots.txt')
 def robots_txt():
