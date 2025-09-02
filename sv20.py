@@ -37,7 +37,6 @@ limiter = Limiter(
 
 calculation_cache = {}
 
-# ▼▼▼ 変更: 障害物リストを受け取るように修正 ▼▼▼
 def is_colliding(chair_x, chair_y, chair_width, chair_depth, obstacles):
     """イス1脚が、いずれかの障害物と重なっているか判定する"""
     for obs in obstacles:
@@ -47,7 +46,6 @@ def is_colliding(chair_x, chair_y, chair_width, chair_depth, obstacles):
             chair_y + chair_depth > obs['y']):
             return True
     return False
-# ▲▲▲ 変更ここまで ▲▲▲
 
 def parse_and_validate_input(data):
     try:
@@ -67,12 +65,9 @@ def parse_and_validate_input(data):
             "front_aisle_width": int(data.get("front_aisle_width", 100)),
             "min_spacing_x": int(data.get("min_spacing_x", 20)),
             "min_spacing_y": int(data.get("min_spacing_y", 100)),
-            # ▼▼▼ 変更: 障害物データをリストとして取得 ▼▼▼
             "obstacles": data.get("obstacles", [])
-            # ▲▲▲ 変更ここまで ▲▲▲
         }
 
-        # 障害物データのバリデーション
         for obs in params["obstacles"]:
             if not all(k in obs for k in ['x', 'y', 'width', 'depth']):
                 raise ValueError("障害物のデータ形式が正しくありません。")
@@ -83,133 +78,6 @@ def parse_and_validate_input(data):
     except (KeyError, TypeError, ValueError) as e:
         raise ValueError(str(e))
 
-# find_optimal_layout と _calculate_max_rows_cols は変更なしのため省略
-
-def calculate_chair_coordinates(params, layout_info):
-    layout_cols, layout_rows = layout_info["cols"], layout_info["rows"]
-    space_x = params["chair_width"] + layout_info["spacing_x"]
-    space_y = params["chair_depth"] + layout_info["spacing_y"]
-    additional_width = space_x / 2 if params["zigzag_layout"] else 0
-
-    total_layout_width, total_layout_depth = _calculate_total_layout_size(params, layout_info, space_x, space_y, additional_width)
-    
-    offset_x = (params["hall_width"] - total_layout_width) / 2
-    if params["add_side_aisles"]:
-        offset_x += AISLE_WIDTH_CM
-    offset_y = params["front_aisle_width"]
-
-    total_chairs_to_draw = min(params["num_chairs"], layout_info["max"]) if layout_info["found"] else layout_info["max"]
-    
-    initial_coords = []
-    count = 0
-    for row in range(int(layout_rows)):
-        if count >= total_chairs_to_draw: break
-        zigzag_offset_x = space_x / 2 if params["zigzag_layout"] and row % 2 != 0 else 0
-        for col in range(int(layout_cols)):
-            if count >= total_chairs_to_draw: break
-            x, y = _get_chair_position(params, layout_info, offset_x, offset_y, space_x, space_y, row, col, zigzag_offset_x)
-            
-            # ▼▼▼ 変更: 障害物リストを渡して衝突判定 ▼▼▼
-            if not is_colliding(x, y, params["chair_width"], params["chair_depth"], params["obstacles"]):
-                initial_coords.append((x, y))
-                count += 1
-            # ▲▲▲ 変更ここまで ▲▲▲
-
-    # ▼▼▼ 変更: 複数の障害物を考慮して、近すぎるイスを削除 ▼▼▼
-    if not params['obstacles']:
-        final_coords = initial_coords
-    else:
-        coords_to_remove = set()
-        min_y_spacing = params['min_spacing_y']
-        
-        for obs in params['obstacles']:
-            obs_x, obs_y = obs['x'], obs['y']
-            obs_w, obs_d = obs['width'], obs['depth']
-
-            for coord in initial_coords:
-                chair_x, chair_y = coord
-                chair_w = params['chair_width']
-                
-                is_below = chair_y >= (obs_y + obs_d)
-                is_aligned_horizontally = (chair_x < obs_x + obs_w) and (chair_x + chair_w > obs_x)
-
-                if is_below and is_aligned_horizontally:
-                    gap = chair_y - (obs_y + obs_d)
-                    if gap < min_y_spacing:
-                        coords_to_remove.add(coord)
-
-        final_coords = [coord for coord in initial_coords if coord not in coords_to_remove]
-    # ▲▲▲ 変更ここまで ▲▲▲
-
-    return {
-        "coords": final_coords, 
-        "offset_x": offset_x, 
-        "offset_y": offset_y,
-        "total": len(final_coords),
-        "zigzag_offset": space_x / 2 if params["zigzag_layout"] else 0
-    }
-
-# _calculate_total_layout_size と _get_chair_position は変更なしのため省略
-
-def create_json_response(params, layout_info, coords_data):
-    return jsonify({
-        "hall_width": params["hall_width"],
-        "hall_depth": params["hall_depth"],
-        "chair_width": params["chair_width"],
-        "chair_depth": params["chair_depth"],
-        "coords": coords_data["coords"],
-        "found": layout_info["found"],
-        "cols": int(layout_info["cols"]),
-        "rows": int(layout_info["rows"]),
-        "spacing_x": layout_info["spacing_x"],
-        "spacing_y": layout_info["spacing_y"],
-        "total": coords_data["total"],
-        "max": int(layout_info["max"]),
-        "offset_x": int(coords_data["offset_x"]),
-        "offset_y": int(coords_data["offset_y"]),
-        "zigzag_offset": coords_data["zigzag_offset"],
-        # ▼▼▼ 変更: 障害物リストをそのまま返す ▼▼▼
-        "obstacles": params.get("obstacles", [])
-        # ▲▲▲ 変更ここまで ▲▲▲
-    })
-
-# メインのルーティング部分は変更なしのため省略
-@app.route("/")
-def index():
-    return render_template("sv19.html")
-
-@app.route("/calculate", methods=["POST"])
-def calculate():
-    try:
-        data = request.get_json()
-        cache_key = json.dumps(data, sort_keys=True)
-        if cache_key in calculation_cache:
-            return calculation_cache[cache_key]
-        
-        params = parse_and_validate_input(data)
-        best_layout, final_layout = find_optimal_layout(params)
-
-        if not best_layout:
-            return jsonify({"found": False, "max": 0, "coords": []})
-
-        coords_data = calculate_chair_coordinates(params, final_layout)
-        response = create_json_response(params, final_layout, coords_data)
-        
-        calculation_cache[cache_key] = response
-        
-        return response
-
-    except ValueError as e:
-        return jsonify({"error": f"入力内容が不正です: {e}"}), 400
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        return jsonify({"error": "サーバー内部で予期しないエラーが発生しました。"}), 500
-
-if __name__ == "__main__":
-    debug_mode = os.environ.get("FLASK_DEBUG") == '1'
-    app.run(debug=debug_mode)
-
-# 省略した find_optimal_layout, _calculate_max_rows_cols, _calculate_total_layout_size, _get_chair_position をここに配置
 def find_optimal_layout(params):
     found = False
     best_max_chairs = 0
@@ -304,21 +172,4 @@ def _get_chair_position(params, layout_info, offset_x, offset_y, space_x, space_
         aisle_every_x = params["aisle_every_x"]
         aisle_every_y = params["aisle_every_y"]
         num_preceding_aisles_x = col // aisle_every_x if aisle_every_x > 0 else 0
-        num_preceding_aisles_y = row // aisle_every_y if aisle_every_y > 0 else 0
-        aisle_offset_x = num_preceding_aisles_x * AISLE_WIDTH_CM
-        aisle_offset_y = num_preceding_aisles_y * AISLE_WIDTH_CM
-        x = offset_x + col * space_x + aisle_offset_x + zigzag_offset_x
-        y = offset_y + row * space_y + aisle_offset_y
-    elif aisle_mode == 'fixed_number':
-        num_aisles_x = params["num_aisles_x"]
-        num_aisles_y = params["num_aisles_y"]
-        cols_per_block = layout_info["cols"] / (num_aisles_x + 1) if num_aisles_x > -1 else layout_info["cols"]
-        rows_per_block = layout_info["rows"] / (num_aisles_y + 1) if num_aisles_y > -1 else layout_info["rows"]
-        num_preceding_aisles_x = math.floor(col / cols_per_block) if cols_per_block > 0 else 0
-        num_preceding_aisles_y = math.floor(row / rows_per_block) if rows_per_block > 0 else 0
-        x = offset_x + col * space_x + num_preceding_aisles_x * AISLE_WIDTH_CM + zigzag_offset_x
-        y = offset_y + row * space_y + num_preceding_aisles_y * AISLE_WIDTH_CM
-    else:
-        x = offset_x + col * space_x + zigzag_offset_x
-        y = offset_y + row * space_y
-    return x, y
+        num_preceding_
