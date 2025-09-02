@@ -269,7 +269,7 @@ def create_json_response(params, layout_info, coords_data):
 
 @app.route("/")
 def index():
-    return render_template("sv19.html")
+    return render_template("sv20.html")
 
 @app.route("/calculate", methods=["POST"])
 def calculate():
