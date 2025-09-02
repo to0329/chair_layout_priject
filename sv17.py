@@ -1,4 +1,6 @@
 #イスや壁との間隔をユーザ入力に
+#計算ボタンを変更
+#通路の間隔の表示を変更
 from flask import Flask, request, jsonify, render_template, send_from_directory, Response
 from flask_cors import CORS #PythonとHTML間の通信
 from flask_limiter import Limiter
