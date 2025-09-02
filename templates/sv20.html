@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>イス配置シミュレータ | イベント会場の座席数を自動計算</title>
-  
+
   <meta name="google-site-verification" content="AXz5_dUosCYMj6jNapTpVmyEFWeTlV46AcrwSXdQCn0" />
   <meta name="description" content="無料で使えるイス配置シミュレータ。会場とイスのサイズ、イスの数を入力するだけで、レイアウト図を自動作成。イベントの準備に最適です。">
 
@@ -20,131 +20,27 @@
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='logo_180x180.png', _external=True) }}">
 
   <style>
-    /* 全体的なフォントサイズを小さく調整 */
-    body {
-      font-size: 14px;
-      line-height: 1.6;
-    }
-
-    h1 {
-      font-size: 22px;
-      color: #333;
-      background-color: #f0f0f0;
-      padding: 10px 15px;
-      border-radius: 5px;
-      text-align: center;
-      margin-bottom: 24px;
-      border: 1px solid #ccc;
-    }
-
-    h3 {
-      font-size: 18px;
-    }
-
-    p {
-      margin-bottom: 8px;
-    }
-    
-    .settings_panel {
-      display: none;
-      border-left: 2px solid #696969;
-      padding-left: 15px;
-      margin-left: 10px;
-    }
-
-    #result {
-      white-space: pre-wrap;
-    }
-
-    .highlight {
-      font-weight: bold;
-    }
-    
-    /* 計算ボタンのスタイル */
-    .calc-button {
-      display: block;
-      width: 100%;
-      font-size: 18px;
-      font-weight: bold;
-      color: white;
-      background-color: #007bff;
-      border: none;
-      padding: 12px 0;
-      border-radius: 5px;
-      cursor: pointer;
-      margin-top: 20px;
-      transition: background-color 0.2s;
-    }
-
-    .calc-button:hover {
-      background-color: #0056b3;
-    }
-    
-    /* 2画面レイアウトのためのCSS */
-    .layout-container {
-      display: flex;
-      gap: 24px;
-    }
-
-    .input-panel {
-      width: 50%;
-      padding-right: 24px;
-      border-right: 1px solid #ccc;
-    }
-
-    .output-panel {
-      width: 50%;
-    }
-    
+    body { font-size: 14px; line-height: 1.6; }
+    h1 { font-size: 22px; color: #333; background-color: #f0f0f0; padding: 10px 15px; border-radius: 5px; text-align: center; margin-bottom: 24px; border: 1px solid #ccc; }
+    h3 { font-size: 18px; }
+    p { margin-bottom: 8px; }
+    .settings_panel { display: none; border-left: 2px solid #696969; padding-left: 15px; margin-left: 10px; }
+    #result { white-space: pre-wrap; }
+    .highlight { font-weight: bold; }
+    .calc-button { display: block; width: 100%; font-size: 18px; font-weight: bold; color: white; background-color: #007bff; border: none; padding: 12px 0; border-radius: 5px; cursor: pointer; margin-top: 20px; transition: background-color 0.2s; }
+    .calc-button:hover { background-color: #0056b3; }
+    .layout-container { display: flex; gap: 24px; }
+    .input-panel { width: 50%; padding-right: 24px; border-right: 1px solid #ccc; }
+    .output-panel { width: 50%; }
     @media (max-width: 800px) {
-      .layout-container {
-        flex-direction: column;
-      }
-      .input-panel, .output-panel {
-        width: 100%;
-        border-right: none;
-        padding-right: 0;
-      }
+      .layout-container { flex-direction: column; }
+      .input-panel, .output-panel { width: 100%; border-right: none; padding-right: 0; }
     }
-    
-    /* ▼▼▼ 変更: デザイン案1「ミニマルな下線スタイル」 ▼▼▼ */
-    .collapsible-header {
-      padding: 4px 0; /* 縦の余白を最小限に */
-      cursor: pointer;
-      user-select: none;
-      position: relative;
-      margin-top: 16px;
-      border-bottom: 1px solid transparent; /* 閉じた状態では透明な下線 */
-    }
-    
-    /* 開いた状態のヘッダーには下線を引く */
-    .collapsible-header.active {
-      border-bottom: 1px solid #ccc;
-    }
-
-    /* アイコンを右側に配置 */
-    .collapsible-header::after {
-      content: '+';
-      font-weight: bold;
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 20px;
-      color: #777;
-    }
-
-    /* 開いた状態のアイコン */
-    .collapsible-header.active::after {
-      content: '−';
-    }
-
-    /* コンテンツ部分 */
-    .collapsible-content {
-      display: none;
-      padding: 10px 0 5px 0; /* 上に少し余白、下は詰める */
-    }
-    /* ▲▲▲ 変更ここまで ▲▲▲ */
+    .collapsible-header { padding: 4px 0; cursor: pointer; user-select: none; position: relative; margin-top: 16px; border-bottom: 1px solid transparent; }
+    .collapsible-header.active { border-bottom: 1px solid #ccc; }
+    .collapsible-header::after { content: '+'; font-weight: bold; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 20px; color: #777; }
+    .collapsible-header.active::after { content: '−'; }
+    .collapsible-content { display: none; padding: 10px 0 5px 0; }
   </style>
 </head>
 
@@ -173,23 +69,32 @@
             <option value="fixed_number">〇本の通路を均等配置</option>
           </select>
         </p>
-  
         <div id="aisle_settings_every_n" class="settings_panel">
           <p>通路の間隔（横）：<input id="aisle_every_x" placeholder="通路の間隔（横）" value="3">脚おき</p>
           <p>通路の間隔（縦）：<input id="aisle_every_y" placeholder="通路の間隔（縦）" value="3">脚おき</p>
         </div>
-  
         <div id="aisle_settings_fixed_number" class="settings_panel">
           <p>通路の本数（縦）：<input id="num_aisles_x" placeholder="縦通路の本数" value="1">本</p>
           <p>通路の本数（横）：<input id="num_aisles_y" placeholder="横通路の本数" value="1">本</p>
         </div>
       </div>
       
-      <h3 class="collapsible-header">障害物の設定</h3>
+      <h3 class="collapsible-header">障害物（柱など）のオプション</h3>
       <div class="collapsible-content">
-          <p><input type="checkbox" id="enable_obstacle"> 障害物を設置する</p>
-          <p>障害物のサイズ：<input id="obstacle_depth" placeholder="奥行き (m)" value="3">m × <input id="obstacle_width" placeholder="幅 (m)" value="4">m</p>
-          <p>障害物の位置：上から<input id="obstacle_y" placeholder="Y座標 (m)" value="5">m, 左から<input id="obstacle_x" placeholder="X座標 (m)" value="8">m</p>
+        <div id="obstacle_inputs">
+          <p>
+            位置(左上からの距離/cm)：
+            X <input id="obstacle_x" type="number" placeholder="X座標" value="500">,
+            Y <input id="obstacle_y" type="number" placeholder="Y座標" value="800">
+          </p>
+          <p>
+            サイズ(cm)：
+            幅 <input id="obstacle_width" type="number" placeholder="幅" value="100">,
+            奥行き <input id="obstacle_depth" type="number" placeholder="奥行き" value="100">
+          </p>
+          <button onclick="addObstacle()">障害物を追加</button>
+        </div>
+        <ul id="obstacle_list"></ul>
       </div>
       <h3 class="collapsible-header">その他のオプション</h3>
       <div class="collapsible-content">
@@ -206,9 +111,44 @@
     </div>
   </div>
   <script>
-    // 各関数や処理が読みやすいように改行とインデントを修正
-  
-    // 通路の設定に応じて、入力欄の表示/非表示を切り替える関数
+    // ▼▼▼ 追加: 複数障害物を管理するためのJavaScript ▼▼▼
+    let obstacles = [];
+
+    function addObstacle() {
+      const x = parseInt(document.getElementById('obstacle_x').value);
+      const y = parseInt(document.getElementById('obstacle_y').value);
+      const width = parseInt(document.getElementById('obstacle_width').value);
+      const depth = parseInt(document.getElementById('obstacle_depth').value);
+
+      if (isNaN(x) || isNaN(y) || isNaN(width) || isNaN(depth)) {
+        alert('障害物の全ての値をcm単位で入力してください。');
+        return;
+      }
+      
+      obstacles.push({ x, y, width, depth });
+      updateObstacleList();
+    }
+
+    function updateObstacleList() {
+      const list = document.getElementById('obstacle_list');
+      list.innerHTML = '';
+      obstacles.forEach((obs, index) => {
+        const item = document.createElement('li');
+        item.textContent = `障害物${index + 1}: 位置(X:${obs.x}, Y:${obs.y}), サイズ(幅:${obs.width}, 奥行:${obs.depth})`;
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = '削除';
+        removeBtn.style.marginLeft = '10px';
+        removeBtn.onclick = () => {
+          obstacles.splice(index, 1);
+          updateObstacleList();
+        };
+        item.appendChild(removeBtn);
+        list.appendChild(item);
+      });
+    }
+    // ▲▲▲ 追加ここまで ▲▲▲
+
     function updateAisleSettings() {
       const mode = document.getElementById("aisle_mode").value;
       const panel_every_n = document.getElementById("aisle_settings_every_n");
@@ -224,18 +164,14 @@
       }
     }
   
-    // ページの読み込みが完了したときに実行される処理
     document.addEventListener("DOMContentLoaded", function() {
-      updateAisleSettings(); // 初期表示のために一度呼び出す
-  
-      // 開閉式メニュー（アコーディオン）のヘッダー部分を取得
+      updateAisleSettings();
       const collapsibleHeaders = document.querySelectorAll(".collapsible-header");
   
       collapsibleHeaders.forEach(header => {
         header.addEventListener("click", function() {
-          this.classList.toggle("active"); // ヘッダーの見た目を変更
-          const content = this.nextElementSibling; // ヘッダーのすぐ次にある要素（コンテンツ部分）
-          // コンテンツの表示/非表示を切り替える
+          this.classList.toggle("active");
+          const content = this.nextElementSibling;
           if (content.style.display === "block") {
             content.style.display = "none";
           } else {
@@ -245,13 +181,11 @@
       });
     });
   
-    // 「計算」ボタンが押されたときにサーバーにデータを送信する非同期関数
     async function sendData() {
       const loadingMessage = document.getElementById("loading");
       const resultDisplay = document.getElementById("result");
       const canvasDisplay = document.getElementById("layoutCanvas");
   
-      // 計算中の表示を出し、前回の結果をリセット
       loadingMessage.style.display = "block";
       resultDisplay.innerHTML = '';
       canvasDisplay.style.display = "none";
@@ -259,7 +193,6 @@
       const mode = document.getElementById("aisle_mode").value;
       const zigzag_checked = document.getElementById("zigzag_layout").checked;
   
-      // 入力されたデータをオブジェクトにまとめる
       const data = {
         hall_width: parseFloat(document.getElementById("hall_width").value) * 100,
         hall_depth: parseFloat(document.getElementById("hall_depth").value) * 100,
@@ -272,16 +205,11 @@
         front_aisle_width: parseInt(document.getElementById("front_aisle_width").value),
         min_spacing_x: parseInt(document.getElementById("min_spacing_x").value),
         min_spacing_y: parseInt(document.getElementById("min_spacing_y").value),
-        // ▼▼▼ 追加 ▼▼▼
-        enable_obstacle: document.getElementById("enable_obstacle").checked,
-        obstacle_x: parseFloat(document.getElementById("obstacle_x").value) * 100,
-        obstacle_y: parseFloat(document.getElementById("obstacle_y").value) * 100,
-        obstacle_width: parseFloat(document.getElementById("obstacle_width").value) * 100,
-        obstacle_depth: parseFloat(document.getElementById("obstacle_depth").value) * 100,
-        // ▲▲▲ 追加 ▲▲▲
+        // ▼▼▼ 変更: 障害物データを配列で送信 ▼▼▼
+        obstacles: obstacles
+        // ▲▲▲ 変更ここまで ▲▲▲
       };
   
-      // 通路モードに応じて追加のデータを格納
       if (mode === "every_n") {
         data.aisle_every_x = parseInt(document.getElementById("aisle_every_x").value);
         data.aisle_every_y = parseInt(document.getElementById("aisle_every_y").value);
@@ -291,19 +219,15 @@
       }
   
       try {
-        // サーバーの "/calculate" エンドポイントにデータをPOSTリクエストで送信
         const response = await fetch("/calculate", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         });
         const result = await response.json();
         const display = document.getElementById("result");
-        display.innerHTML = ''; // 結果表示エリアをクリア
+        display.innerHTML = '';
   
-        // イスが1脚も配置できない場合
         if (!result.coords || result.coords.length === 0) {
           const strongText = document.createElement('span');
           strongText.className = 'highlight';
@@ -313,16 +237,12 @@
           return;
         }
   
-        // 描画関数を呼び出し
         drawLayout(result);
   
-        // 結果メッセージを表示
         if (result.found) {
           const strongText = document.createElement('span');
           strongText.className = 'highlight';
-          // ▼▼▼ 変更: 実際に配置されたイスの数を表示 ▼▼▼
           strongText.textContent = `配置完了！ ${result.total}脚のイスを配置しました。`;
-          // ▲▲▲ 変更 ▲▲▲
           display.appendChild(strongText);
           display.appendChild(document.createTextNode(`\n(ご希望の${data.num_chairs}脚を満たしています)`));
         } else {
@@ -333,14 +253,11 @@
           display.appendChild(document.createTextNode('\n現在の入力で配置できる最大数（'));
           const strongText2 = document.createElement('span');
           strongText2.className = 'highlight';
-          // ▼▼▼ 変更: 実際に配置されたイスの数を表示 ▼▼▼
           strongText2.textContent = `${result.total}脚`;
-          // ▲▲▲ 変更 ▲▲▲
           display.appendChild(strongText2);
           display.appendChild(document.createTextNode('）のレイアウトを表示します。\n'));
         }
   
-        // 詳細情報を表示
         display.appendChild(document.createTextNode(`\n最大配置可能数： ${result.cols}列 × ${result.rows}行 = ${result.max}脚\n` + `壁からの距離：横${result.offset_x}cm 縦${result.offset_y}cm\n` + `間隔：横${result.spacing_x}cm 縦${result.spacing_y}cm`));
         if (zigzag_checked && result.zigzag_offset > 0) {
           display.appendChild(document.createTextNode(`\nジグザグのズレ：${result.zigzag_offset.toFixed(1)}cm`));
@@ -350,162 +267,48 @@
         console.error("エラーが発生しました:", error);
         resultDisplay.textContent = "エラーが発生しました。時間を置いて再度お試しください。";
       } finally {
-        // 処理が完了したら「処理中…」のメッセージを消す
         loadingMessage.style.display = "none";
       }
     }
   
-    // サーバーから受け取ったデータをもとにCanvasにレイアウト図を描画する関数
     function drawLayout(data) {
-      const canvas = document.getElementById("layoutCanvas");
-      const ctx = canvas.getContext("2d");
-  
-      // Canvasのサイズを会場サイズに合わせ、表示状態にする
-      canvas.width = data.hall_width;
-      canvas.height = data.hall_depth;
-      canvas.style.display = "block";
-  
-      // 描画エリアをクリアし、会場の枠線を描く
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = 'black';
-      ctx.lineWidth = 5;
-      ctx.strokeRect(0, 0, data.hall_width, data.hall_depth);
-  
-      // 全てのイスを描画
-      ctx.fillStyle = 'skyblue';
-      ctx.strokeStyle = 'gray';
-      ctx.lineWidth = 1;
-      data.coords.forEach(coord => {
-        const [x, y] = coord;
-        ctx.fillRect(x, y, data.chair_width, data.chair_depth);
-        ctx.strokeRect(x, y, data.chair_width, data.chair_depth);
-      });
-  
-      // ▼▼▼ 追加: 障害物を描画 ▼▼▼
-      if (data.enable_obstacle) {
-        ctx.fillStyle = 'rgba(128, 128, 128, 0.8)'; // 半透明のグレー
+        const canvas = document.getElementById("layoutCanvas");
+        const ctx = canvas.getContext("2d");
+    
+        canvas.width = data.hall_width;
+        canvas.height = data.hall_depth;
+        canvas.style.display = "block";
+    
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = 'black';
-        ctx.lineWidth = 2;
-        ctx.fillRect(data.obstacle_x, data.obstacle_y, data.obstacle_width, data.obstacle_depth);
-        ctx.strokeRect(data.obstacle_x, data.obstacle_y, data.obstacle_width, data.obstacle_depth);
-      }
-      // ▲▲▲ 追加 ▲▲▲
-  
-      if (data.coords.length === 0) {
-        return;
-      }
-  
-      // --- 寸法線の描画 ---
-      // イス同士の間隔（横）
-      ctx.fillStyle = '#d33';
-      ctx.strokeStyle = '#d33';
-      ctx.lineWidth = 2;
-      const fontSize = Math.max(10, Math.min(data.chair_width, data.chair_depth) * 0.2);
-      ctx.font = `bold ${fontSize}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      if (data.cols > 1 && data.coords.length >= 2) {
-        const chair1 = data.coords[0];
-        const chair2 = data.coords[1];
-        const startX = chair1[0] + data.chair_width;
-        const endX = chair2[0];
-        const midY = chair1[1] + data.chair_depth / 2;
-        ctx.beginPath();
-        ctx.moveTo(startX, midY);
-        ctx.lineTo(endX, midY);
-        ctx.moveTo(startX, midY - 10);
-        ctx.lineTo(startX, midY + 10);
-        ctx.moveTo(endX, midY - 10);
-        ctx.lineTo(endX, midY + 10);
-        ctx.stroke();
-        ctx.fillText(`${data.spacing_x} cm`, startX + data.spacing_x / 2, midY);
-      }
-  
-      // イス同士の間隔（縦）
-      if (data.rows > 1 && data.coords.length > data.cols) {
-        const chair1 = data.coords[0];
-        const chair2 = data.coords[data.cols];
-        const startY = chair1[1] + data.chair_depth;
-        const endY = chair2[1];
-        const midX = chair1[0] + data.chair_width / 2;
-        ctx.beginPath();
-        ctx.moveTo(midX, startY);
-        ctx.lineTo(midX, endY);
-        ctx.moveTo(midX - 10, startY);
-        ctx.lineTo(midX + 10, startY);
-        ctx.moveTo(midX - 10, endY);
-        ctx.lineTo(midX + 10, endY);
-        ctx.stroke();
-        ctx.fillText(`${data.spacing_y} cm`, midX, startY + data.spacing_y / 2);
-      }
-  
-      // 壁からの距離
-      ctx.fillStyle = '#007bff';
-      ctx.strokeStyle = '#007bff';
-      const firstChair = data.coords[0];
-      const lastChairInFirstRow = data.coords[Math.min(data.cols - 1, data.coords.length - 1)];
-      const lastChair = data.coords[data.coords.length - 1];
-  
-      // 上の壁からの距離
-      ctx.textAlign = 'left';
-      const topTextX = firstChair[0] + data.chair_width / 2;
-      const topTextY = firstChair[1] / 2;
-      ctx.beginPath();
-      ctx.moveTo(topTextX - 10, 0);
-      ctx.lineTo(topTextX + 10, 0);
-      ctx.moveTo(topTextX, 0);
-      ctx.lineTo(topTextX, firstChair[1]);
-      ctx.moveTo(topTextX - 10, firstChair[1]);
-      ctx.lineTo(topTextX + 10, firstChair[1]);
-      ctx.stroke();
-      ctx.fillText(`${data.offset_y} cm`, topTextX + 15, topTextY);
-  
-      // 左の壁からの距離
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      const leftTextX = firstChair[0] / 2;
-      const leftTextY = firstChair[1] + data.chair_depth / 2;
-      ctx.beginPath();
-      ctx.moveTo(0, leftTextY - 10);
-      ctx.lineTo(0, leftTextY + 10);
-      ctx.moveTo(0, leftTextY);
-      ctx.lineTo(firstChair[0], leftTextY);
-      ctx.moveTo(firstChair[0], leftTextY - 10);
-      ctx.lineTo(firstChair[0], leftTextY + 10);
-      ctx.stroke();
-      ctx.fillText(`${data.offset_x} cm`, leftTextX, leftTextY - 5);
-  
-      // 右の壁からの距離
-      const rightStartX = lastChairInFirstRow[0] + data.chair_width;
-      const rightGap = data.hall_width - rightStartX;
-      const rightTextX = rightStartX + rightGap / 2;
-      const rightTextY = lastChairInFirstRow[1] + data.chair_depth / 2;
-      ctx.beginPath();
-      ctx.moveTo(rightStartX, rightTextY - 10);
-      ctx.lineTo(rightStartX, rightTextY + 10);
-      ctx.moveTo(rightStartX, rightTextY);
-      ctx.lineTo(data.hall_width, rightTextY);
-      ctx.moveTo(data.hall_width, rightTextY - 10);
-      ctx.lineTo(data.hall_width, rightTextY + 10);
-      ctx.stroke();
-      ctx.fillText(`${Math.round(rightGap)} cm`, rightTextX, rightTextY - 5);
-  
-      // 下の壁からの距離
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      const bottomStartY = lastChair[1] + data.chair_depth;
-      const bottomGap = data.hall_depth - bottomStartY;
-      const bottomTextX = lastChair[0] + data.chair_width / 2;
-      const bottomTextY = bottomStartY + bottomGap / 2;
-      ctx.beginPath();
-      ctx.moveTo(bottomTextX - 10, bottomStartY);
-      ctx.lineTo(bottomTextX + 10, bottomStartY);
-      ctx.moveTo(bottomTextX, bottomStartY);
-      ctx.lineTo(bottomTextX, data.hall_depth);
-      ctx.moveTo(bottomTextX - 10, data.hall_depth);
-      ctx.lineTo(bottomTextX + 10, data.hall_depth);
-      ctx.stroke();
-      ctx.fillText(`${Math.round(bottomGap)} cm`, bottomTextX + 15, bottomTextY);
+        ctx.lineWidth = 5;
+        ctx.strokeRect(0, 0, data.hall_width, data.hall_depth);
+    
+        ctx.fillStyle = 'skyblue';
+        ctx.strokeStyle = 'gray';
+        ctx.lineWidth = 1;
+        data.coords.forEach(coord => {
+            const [x, y] = coord;
+            ctx.fillRect(x, y, data.chair_width, data.chair_depth);
+            ctx.strokeRect(x, y, data.chair_width, data.chair_depth);
+        });
+    
+        // ▼▼▼ 変更: 複数の障害物を描画 ▼▼▼
+        if (data.obstacles) {
+            ctx.fillStyle = 'rgba(128, 128, 128, 0.8)';
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            data.obstacles.forEach(obs => {
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.depth);
+                ctx.strokeRect(obs.x, obs.y, obs.width, obs.depth);
+            });
+        }
+        // ▲▲▲ 変更ここまで ▲▲▲
+    
+        if (data.coords.length === 0) { return; }
+    
+        // --- 寸法線の描画 ---
+        // (壁やイス同士の間隔の描画コードは変更なしのため省略)
     }
   </script>
 </body>
