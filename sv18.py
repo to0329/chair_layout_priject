@@ -1,4 +1,6 @@
 #イスや壁との間隔をユーザ入力に
+#計算ボタンを変更
+#通路の間隔の表示を変更
 from flask import Flask, request, jsonify, render_template, send_from_directory, Response
 from flask_cors import CORS #PythonとHTML間の通信
 from flask_limiter import Limiter
@@ -337,40 +339,6 @@ def _get_chair_position(params, layout_info, offset_x, offset_y, space_x, space_
     return x, y
 
 
-# ▼▼▼ 変更 ▼▼▼
-# 【高速化②】この関数はブラウザで描画するため不要になります
-# def generate_layout_image(params, coords_data):
-#     #▼▼画像生成▼▼
-#     fig, ax = plt.subplots()
-#     ax.set_aspect('equal')
-#     ax.set_xlim(0, params["hall_width"])
-#     ax.set_ylim(0, params["hall_depth"])
-#     ax.set_title("Chair Layout")
-#     ax.set_xlabel("width (m)") #単位をmに変更
-#     ax.set_ylabel("depth (m)") #単位をmに変更
-# 
-#     formatter = mticker.FuncFormatter(lambda x, pos: f'{x/100:.1f}')
-#     ax.xaxis.set_major_formatter(formatter)
-#     ax.yaxis.set_major_formatter(formatter)
-# 
-#     ax.add_patch(plt.Rectangle((0, 0), params["hall_width"], params["hall_depth"], fill=False, edgecolor='black'))
-# 
-#     for (x, y) in coords_data["coords"]:
-#         ax.add_patch(plt.Rectangle((x, y), params["chair_width"], params["chair_depth"], facecolor='skyblue', edgecolor='gray'))
-# 
-#     plt.gca().invert_yaxis() #y軸の反転
-#     plt.tight_layout() #レイアウトの自動調整
-# 
-#     buf = io.BytesIO()
-#     plt.savefig(buf, format="png")
-#     plt.close(fig)
-#     buf.seek(0)
-#     return base64.b64encode(buf.read()).decode("utf-8")
-# ▲▲▲ 変更 ▲▲▲
-
-
-#5.JSONレスポンスを組み立てる
-# ▼▼▼ 変更 ▼▼▼
 # 【高速化②】画像データを返さず、描画に必要なデータを返すように変更
 def create_json_response(params, layout_info, coords_data):
     return jsonify({
@@ -399,7 +367,7 @@ def create_json_response(params, layout_info, coords_data):
 # ▼▼▼!! メイン関数 !!▼▼▼
 @app.route("/")
 def index():
-    return render_template("sv17.html")
+    return render_template("sv18.html")
 # robots.txtを提供するルート
 @app.route('/robots.txt')
 def robots_txt():
