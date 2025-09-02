@@ -38,16 +38,36 @@ limiter = Limiter(
 calculation_cache = {}
 
 def is_colliding(chair_x, chair_y, chair_width, chair_depth, obstacles):
-    """イス1脚が、いずれかの障害物と重なっているか判定する"""
+    """イスと障害物の衝突判定。円形と四角形に対応。"""
     for obs in obstacles:
-        if (chair_x < obs['x'] + obs['width'] and
-            chair_x + chair_width > obs['x'] and
-            chair_y < obs['y'] + obs['depth'] and
-            chair_y + chair_depth > obs['y']):
+        collides = False
+        if obs.get('type') == 'circle':
+            # 円と四角形の衝突判定
+            cx, cy, r = obs['x'], obs['y'], obs['radius']
+            
+            closest_x = max(chair_x, min(cx, chair_x + chair_width))
+            closest_y = max(chair_y, min(cy, chair_y + chair_depth))
+            
+            dist_x = cx - closest_x
+            dist_y = cy - closest_y
+            distance_squared = (dist_x * dist_x) + (dist_y * dist_y)
+            
+            if distance_squared < (r * r):
+                collides = True
+        else: # デフォルトは四角形
+            # 四角形同士の衝突判定
+            if (chair_x < obs['x'] + obs['width'] and
+                chair_x + chair_width > obs['x'] and
+                chair_y < obs['y'] + obs['depth'] and
+                chair_y + chair_depth > obs['y']):
+                collides = True
+        
+        if collides:
             return True
     return False
 
 def parse_and_validate_input(data):
+    """入力データを解析し、バリデーションを行う。円形障害物に対応。"""
     try:
         params = {
             "hall_width": float(data["hall_width"]),
@@ -69,11 +89,19 @@ def parse_and_validate_input(data):
         }
 
         for obs in params["obstacles"]:
-            if not all(k in obs for k in ['x', 'y', 'width', 'depth']):
-                raise ValueError("障害物のデータ形式が正しくありません。")
-            for k, v in obs.items():
-                if not isinstance(v, (int, float)) or v < 0:
-                    raise ValueError(f"障害物の値 {k}:{v} が不正です。")
+            obs_type = obs.get('type')
+            if not obs_type or not all(k in obs for k in ['x', 'y']):
+                raise ValueError("障害物の基本データ(type, x, y)が不足しています。")
+            
+            if obs_type == 'rectangle':
+                if not all(k in obs for k in ['width', 'depth']):
+                    raise ValueError("四角形障害物のデータ(width, depth)が不足しています。")
+            elif obs_type == 'circle':
+                if 'radius' not in obs:
+                    raise ValueError("円形障害物のデータ(radius)が不足しています。")
+            else:
+                raise ValueError(f"未知の障害物タイプ: {obs_type}")
+
         return params
     except (KeyError, TypeError, ValueError) as e:
         raise ValueError(str(e))
@@ -197,10 +225,12 @@ def calculate_chair_coordinates(params, layout_info):
     space_y = params["chair_depth"] + layout_info["spacing_y"]
     additional_width = space_x / 2 if params["zigzag_layout"] else 0
     total_layout_width, total_layout_depth = _calculate_total_layout_size(params, layout_info, space_x, space_y, additional_width)
+    
     offset_x = (params["hall_width"] - total_layout_width) / 2
     if params["add_side_aisles"]:
         offset_x += AISLE_WIDTH_CM
     offset_y = params["front_aisle_width"]
+    
     total_chairs_to_draw = min(params["num_chairs"], layout_info["max"]) if layout_info["found"] else layout_info["max"]
     
     initial_coords = []
@@ -222,26 +252,36 @@ def calculate_chair_coordinates(params, layout_info):
         min_y_spacing = params['min_spacing_y']
         
         for obs in params['obstacles']:
-            obs_x, obs_y = obs['x'], obs['y']
-            obs_w, obs_d = obs['width'], obs['depth']
-
             for coord in initial_coords:
                 chair_x, chair_y = coord
                 chair_w = params['chair_width']
                 
-                is_below = chair_y >= (obs_y + obs_d)
-                is_aligned_horizontally = (chair_x < obs_x + obs_w) and (chair_x + chair_w > obs_x)
+                is_below = False
+                is_aligned_horizontally = False
+                gap = float('inf')
 
-                if is_below and is_aligned_horizontally:
-                    gap = chair_y - (obs_y + obs_d)
-                    if gap < min_y_spacing:
-                        coords_to_remove.add(coord)
+                if obs.get('type') == 'circle':
+                    cx, cy, r = obs['x'], obs['y'], obs['radius']
+                    is_below = chair_y >= (cy + r)
+                    is_aligned_horizontally = (chair_x < cx + r) and (chair_x + chair_w > cx - r)
+                    if is_below and is_aligned_horizontally:
+                        gap = chair_y - (cy + r)
+                else: # rectangle
+                    obs_x, obs_y = obs['x'], obs['y']
+                    obs_w, obs_d = obs['width'], obs['depth']
+                    is_below = chair_y >= (obs_y + obs_d)
+                    is_aligned_horizontally = (chair_x < obs_x + obs_w) and (chair_x + chair_w > obs_x)
+                    if is_below and is_aligned_horizontally:
+                        gap = chair_y - (obs_y + obs_d)
+
+                if gap < min_y_spacing:
+                    coords_to_remove.add(coord)
 
         final_coords = [coord for coord in initial_coords if coord not in coords_to_remove]
 
     return {
         "coords": final_coords, 
-        "offset_x": offset_x, 
+        "offset_x": offset_x,
         "offset_y": offset_y,
         "total": len(final_coords),
         "zigzag_offset": space_x / 2 if params["zigzag_layout"] else 0
@@ -269,7 +309,7 @@ def create_json_response(params, layout_info, coords_data):
 
 @app.route("/")
 def index():
-    return render_template("sv20.html")
+    return render_template("sv21.html")
 
 @app.route("/calculate", methods=["POST"])
 def calculate():
@@ -282,8 +322,8 @@ def calculate():
         params = parse_and_validate_input(data)
         best_layout, final_layout = find_optimal_layout(params)
 
-        if not best_layout:
-            return jsonify({"found": False, "max": 0, "coords": []})
+        if not best_layout or not final_layout:
+             return jsonify({"found": False, "max": 0, "coords": []})
 
         coords_data = calculate_chair_coordinates(params, final_layout)
         response = create_json_response(params, final_layout, coords_data)
