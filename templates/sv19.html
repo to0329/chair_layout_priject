@@ -21,7 +21,6 @@
 
   <style>
     body {
-      /* ▼▼▼ 変更: sv18のスタイルに近づけるため、フォント指定とマージンを調整 ▼▼▼ */
       font-size: 14px;
       line-height: 1.6;
     }
@@ -60,14 +59,13 @@
       font-weight: bold;
     }
 
-    /* 計算ボタンのスタイル */
     .calc-button {
       display: block;
       width: 100%;
       font-size: 18px;
       font-weight: bold;
       color: white;
-      background-color: #007bff; /* sv18.htmlのボタンの色に統一 */
+      background-color: #007bff;
       border: none;
       padding: 12px 0;
       border-radius: 5px;
@@ -106,22 +104,19 @@
       }
     }
     
-    /* ▼▼▼ 変更: デザイン案1「ミニマルな下線スタイル」 ▼▼▼ */
     .collapsible-header {
-      padding: 4px 0; /* 縦の余白を最小限に */
+      padding: 4px 0;
       cursor: pointer;
       user-select: none;
       position: relative;
       margin-top: 16px;
-      border-bottom: 1px solid transparent; /* 閉じた状態では透明な下線 */
+      border-bottom: 1px solid transparent;
     }
     
-    /* 開いた状態のヘッダーには下線を引く */
     .collapsible-header.active {
       border-bottom: 1px solid #ccc;
     }
 
-    /* アイコンを右側に配置 */
     .collapsible-header::after {
       content: '+';
       font-weight: bold;
@@ -133,17 +128,14 @@
       color: #777;
     }
 
-    /* 開いた状態のアイコン */
     .collapsible-header.active::after {
       content: '−';
     }
 
-    /* コンテンツ部分 */
     .collapsible-content {
       display: none;
-      padding: 10px 0 5px 0; /* 上に少し余白、下は詰める */
+      padding: 10px 0 5px 0;
     }
-    /* ▲▲▲ 変更ここまで ▲▲▲ */
   </style>
 </head>
 
@@ -191,15 +183,71 @@
         <p>イス同士の最低の間隔（横）：<input id="min_spacing_x" placeholder="横の間隔 (cm)" value="20">cm</p>
         <p><input type="checkbox" id="zigzag_layout"> イスをジグザグに配置する</p>
       </div>
+
+      <h3 class="collapsible-header">障害物（柱など）のオプション</h3>
+      <div class="collapsible-content">
+        <div id="obstacle_inputs">
+          <p>
+            位置(左上からの距離)：
+            X <input id="obstacle_x" type="number" placeholder="X座標(cm)" value="500"> cm,
+            Y <input id="obstacle_y" type="number" placeholder="Y座標(cm)" value="800"> cm
+          </p>
+          <p>
+            サイズ：
+            幅 <input id="obstacle_width" type="number" placeholder="幅(cm)" value="100"> cm,
+            奥行き <input id="obstacle_depth" type="number" placeholder="奥行き(cm)" value="100"> cm
+          </p>
+          <button onclick="addObstacle()">障害物を追加</button>
+        </div>
+        <ul id="obstacle_list"></ul>
+      </div>
       <button onclick="sendData()" class="calc-button">計算</button>
     </div>
     <div class="output-panel">
       <p id="loading" style="display: none; font-weight: bold;">処理中…</p>
       <p id="result"></p>
-      <canvas id="layoutCanvas" style="max-width: 100%; width: 100%; border: 1px solid black; display: none; background-color: white;"></canvas>
+      <canvas id="layoutCanvas" style="max-width: 350px; width: 100%; border: 1px solid black; display: none; background-color: white;"></canvas>
     </div>
   </div>
   <script>
+    // ▼▼▼ 障害物管理のJavaScriptを追加 ▼▼▼
+    let obstacles = [];
+
+    function addObstacle() {
+      const x = parseInt(document.getElementById('obstacle_x').value);
+      const y = parseInt(document.getElementById('obstacle_y').value);
+      const width = parseInt(document.getElementById('obstacle_width').value);
+      const depth = parseInt(document.getElementById('obstacle_depth').value);
+
+      if (isNaN(x) || isNaN(y) || isNaN(width) || isNaN(depth)) {
+        alert('障害物の全ての値を入力してください。');
+        return;
+      }
+      
+      obstacles.push({ x, y, width, depth });
+      updateObstacleList();
+    }
+
+    function updateObstacleList() {
+      const list = document.getElementById('obstacle_list');
+      list.innerHTML = '';
+      obstacles.forEach((obs, index) => {
+        const item = document.createElement('li');
+        item.textContent = `障害物${index + 1}: 位置(X:${obs.x}, Y:${obs.y}), サイズ(幅:${obs.width}, 奥行:${obs.depth})`;
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = '削除';
+        removeBtn.style.marginLeft = '10px';
+        removeBtn.onclick = () => {
+          obstacles.splice(index, 1);
+          updateObstacleList();
+        };
+        item.appendChild(removeBtn);
+        list.appendChild(item);
+      });
+    }
+    // ▲▲▲ ここまで追加 ▲▲▲
+
     function updateAisleSettings() {
       const mode = document.getElementById("aisle_mode").value;
       const panel_every_n = document.getElementById("aisle_settings_every_n");
@@ -215,7 +263,6 @@
       }
     }
 
-    // ▼▼▼ 変更: DOMContentLoadedイベントリスナーに折りたたみ機能のJavaScriptを追加 ▼▼▼
     document.addEventListener("DOMContentLoaded", function() {
       updateAisleSettings();
       
@@ -232,7 +279,6 @@
         });
       });
     });
-    // ▲▲▲ 変更 ▲▲▲
 
     async function sendData() {
       const loadingMessage = document.getElementById("loading");
@@ -258,6 +304,14 @@
         front_aisle_width: parseInt(document.getElementById("front_aisle_width").value),
         min_spacing_x: parseInt(document.getElementById("min_spacing_x").value),
         min_spacing_y: parseInt(document.getElementById("min_spacing_y").value),
+        // ▼▼▼ 障害物データを追加 ▼▼▼
+        obstacles: obstacles.map(obs => ({
+            x: obs.x,
+            y: obs.y,
+            width: obs.width,
+            depth: obs.depth
+        }))
+        // ▲▲▲ ここまで追加 ▲▲▲
       };
 
       if (mode === "every_n") {
@@ -314,14 +368,14 @@
 
           const strongText2 = document.createElement('span');
           strongText2.className = 'highlight';
-          strongText2.textContent = `${result.max}脚`;
+          strongText2.textContent = `${result.total}脚`;
           display.appendChild(strongText2);
 
           display.appendChild(document.createTextNode('）のレイアウトを表示します。\n'));
         }
 
         display.appendChild(document.createTextNode(
-          `最大配置数： ${result.cols}列 × ${result.rows}行 = ${result.max}脚\n` +
+          `グリッド情報： ${result.cols}列 × ${result.rows}行 = ${result.max}脚\n` +
           `壁からの距離：横${result.offset_x}cm 縦${result.offset_y}cm\n` +
           `イスの間隔：横${result.spacing_x}cm 縦${result.spacing_y}cm`
         ));
@@ -350,7 +404,18 @@
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 5;
         ctx.strokeRect(0, 0, data.hall_width, data.hall_depth);
-
+        
+        // ▼▼▼ 障害物とイスの描画 ▼▼▼
+        ctx.fillStyle = 'gray';
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2;
+        if (data.obstacles) {
+            data.obstacles.forEach(obs => {
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.depth);
+                ctx.strokeRect(obs.x, obs.y, obs.width, obs.depth);
+            });
+        }
+        
         ctx.fillStyle = 'skyblue';
         ctx.strokeStyle = 'gray';
         ctx.lineWidth = 1;
@@ -365,14 +430,15 @@
             return;
         }
 
+        const fontSize = Math.max(12, Math.min(data.chair_width, data.chair_depth) * 0.25);
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        
+        // --- イス同士の間隔描画 ---
         ctx.fillStyle = '#d33';
         ctx.strokeStyle = '#d33';
         ctx.lineWidth = 2;
-        const fontSize = Math.max(12, Math.min(data.chair_width, data.chair_depth) * 0.25);
-        ctx.font = `bold ${fontSize}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-
         if (data.cols > 1 && data.coords.length >= 2) {
             const chair1 = data.coords[0]; const chair2 = data.coords[1];
             const startX = chair1[0] + data.chair_width; const endX = chair2[0];
@@ -384,7 +450,6 @@
             ctx.stroke();
             ctx.fillText(`${data.spacing_x} cm`, startX + data.spacing_x / 2, midY - fontSize);
         }
-
         if (data.rows > 1 && data.coords.length > data.cols) {
             const chair1 = data.coords[0]; const chair2 = data.coords[data.cols];
             const startY = chair1[1] + data.chair_depth; const endY = chair2[1];
@@ -397,13 +462,12 @@
             ctx.fillText(`${data.spacing_y} cm`, midX + fontSize, startY + data.spacing_y / 2);
         }
         
+        // --- 壁からの距離描画 ---
         ctx.fillStyle = '#007bff';
         ctx.strokeStyle = '#007bff';
-        
         const firstChair = data.coords[0];
         const lastChairInFirstRow = data.coords[Math.min(data.cols - 1, data.coords.length - 1)];
         const lastChair = data.coords[data.coords.length - 1];
-
         ctx.textAlign = 'left';
         const topTextX = firstChair[0] + data.chair_width / 2;
         const topTextY = firstChair[1] / 2;
@@ -413,7 +477,6 @@
         ctx.moveTo(topTextX - 10, firstChair[1]); ctx.lineTo(topTextX + 10, firstChair[1]);
         ctx.stroke();
         ctx.fillText(`${data.offset_y} cm`, topTextX + 15, topTextY);
-
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         const leftTextX = firstChair[0] / 2;
@@ -424,7 +487,6 @@
         ctx.moveTo(firstChair[0], leftTextY - 10); ctx.lineTo(firstChair[0], leftTextY + 10);
         ctx.stroke();
         ctx.fillText(`${data.offset_x} cm`, leftTextX, leftTextY - 5);
-
         const rightStartX = lastChairInFirstRow[0] + data.chair_width;
         const rightGap = data.hall_width - rightStartX;
         const rightTextX = rightStartX + rightGap / 2;
@@ -435,7 +497,6 @@
         ctx.moveTo(data.hall_width, rightTextY - 10); ctx.lineTo(data.hall_width, rightTextY + 10);
         ctx.stroke();
         ctx.fillText(`${Math.round(rightGap)} cm`, rightTextX, rightTextY - 5);
-
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         const bottomStartY = lastChair[1] + data.chair_depth;
@@ -448,6 +509,109 @@
         ctx.moveTo(bottomTextX - 10, data.hall_depth); ctx.lineTo(bottomTextX + 10, data.hall_depth);
         ctx.stroke();
         ctx.fillText(`${Math.round(bottomGap)} cm`, bottomTextX + 15, bottomTextY);
+
+        // ▼▼▼ 障害物とイスの間の距離を描画する処理 ▼▼▼
+        if (data.obstacles && data.coords.length > 0) {
+            ctx.fillStyle = '#28a745';
+            ctx.strokeStyle = '#28a745';
+
+            data.obstacles.forEach(obs => {
+                let minDist = {
+                    top: Infinity, bottom: Infinity,
+                    left: Infinity, right: Infinity
+                };
+                let nearestChair = {
+                    top: null, bottom: null,
+                    left: null, right: null
+                };
+
+                data.coords.forEach(coord => {
+                    const chair = { x: coord[0], y: coord[1], width: data.chair_width, depth: data.chair_depth };
+
+                    if (chair.y + chair.depth > obs.y && chair.y < obs.y + obs.depth) {
+                        if (chair.x < obs.x) {
+                            const dist = obs.x - (chair.x + chair.width);
+                            if (dist >= 0 && dist < minDist.left) {
+                                minDist.left = dist;
+                                nearestChair.left = chair;
+                            }
+                        } else {
+                            const dist = chair.x - (obs.x + obs.width);
+                             if (dist >= 0 && dist < minDist.right) {
+                                minDist.right = dist;
+                                nearestChair.right = chair;
+                            }
+                        }
+                    }
+                    if (chair.x + chair.width > obs.x && chair.x < obs.x + obs.width) {
+                         if (chair.y < obs.y) {
+                            const dist = obs.y - (chair.y + chair.depth);
+                             if (dist >= 0 && dist < minDist.top) {
+                                minDist.top = dist;
+                                nearestChair.top = chair;
+                            }
+                        } else {
+                            const dist = chair.y - (obs.y + obs.depth);
+                            if (dist >= 0 && dist < minDist.bottom) {
+                                minDist.bottom = dist;
+                                nearestChair.bottom = chair;
+                            }
+                        }
+                    }
+                });
+                
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                if (nearestChair.left) {
+                    const xStart = nearestChair.left.x + nearestChair.left.width;
+                    const xEnd = obs.x;
+                    const y = obs.y + obs.depth / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(xStart, y); ctx.lineTo(xEnd, y);
+                    ctx.moveTo(xStart, y - 10); ctx.lineTo(xStart, y + 10);
+                    ctx.moveTo(xEnd, y - 10); ctx.lineTo(xEnd, y + 10);
+                    ctx.stroke();
+                    ctx.fillText(`${Math.round(minDist.left)} cm`, xStart + minDist.left / 2, y - fontSize);
+                }
+                if (nearestChair.right) {
+                    const xStart = obs.x + obs.width;
+                    const xEnd = nearestChair.right.x;
+                    const y = obs.y + obs.depth / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(xStart, y); ctx.lineTo(xEnd, y);
+                    ctx.moveTo(xStart, y - 10); ctx.lineTo(xStart, y + 10);
+                    ctx.moveTo(xEnd, y - 10); ctx.lineTo(xEnd, y + 10);
+                    ctx.stroke();
+                    ctx.fillText(`${Math.round(minDist.right)} cm`, xStart + minDist.right / 2, y - fontSize);
+                }
+                if (nearestChair.top) {
+                    const yStart = nearestChair.top.y + nearestChair.top.depth;
+                    const yEnd = obs.y;
+                    const x = obs.x + obs.width / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x, yStart); ctx.lineTo(x, yEnd);
+                    ctx.moveTo(x - 10, yStart); ctx.lineTo(x + 10, yStart);
+                    ctx.moveTo(x - 10, yEnd); ctx.lineTo(x + 10, yEnd);
+                    ctx.stroke();
+                    ctx.save(); ctx.translate(x - fontSize, yStart + minDist.top / 2); ctx.rotate(-Math.PI/2); ctx.textAlign = 'center';
+                    ctx.fillText(`${Math.round(minDist.top)} cm`, 0, 0); ctx.restore();
+                }
+                if (nearestChair.bottom) {
+                    const yStart = obs.y + obs.depth;
+                    const yEnd = nearestChair.bottom.y;
+                    const x = obs.x + obs.width / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x, yStart); ctx.lineTo(x, yEnd);
+                    ctx.moveTo(x - 10, yStart); ctx.lineTo(x + 10, yStart);
+                    ctx.moveTo(x - 10, yEnd); ctx.lineTo(x + 10, yEnd);
+                    ctx.stroke();
+                    ctx.save(); ctx.translate(x - fontSize, yStart + minDist.bottom / 2); ctx.rotate(-Math.PI/2); ctx.textAlign = 'center';
+                    ctx.fillText(`${Math.round(minDist.bottom)} cm`, 0, 0); ctx.restore();
+                }
+            });
+        }
+        // ▲▲▲ ここまで ▲▲▲
     }
   </script>
 
