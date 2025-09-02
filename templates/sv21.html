@@ -20,7 +20,12 @@
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='logo_180x180.png', _external=True) }}">
 
   <style>
-    body { font-size: 14px; line-height: 1.6; }
+    /* 変更点: bodyのスクロールを原則無効に */
+    body { 
+      font-size: 14px; 
+      line-height: 1.6; 
+      overflow: hidden; /* ページ全体のスクロールバーを非表示にする */
+    }
     h1 { font-size: 22px; color: #333; background-color: #f0f0f0; padding: 10px 15px; border-radius: 5px; text-align: center; margin-bottom: 24px; border: 1px solid #ccc; }
     h3 { font-size: 18px; }
     p { margin-bottom: 8px; }
@@ -28,13 +33,41 @@
     #result { white-space: pre-wrap; }
     .highlight { font-weight: bold; }
     .calc-button { display: block; width: 100%; font-size: 18px; font-weight: bold; color: white; background-color: #007bff; border: none; padding: 12px 0; border-radius: 5px; cursor: pointer; margin-top: 20px; transition: background-color 0.2s; }
-    .calc-button:hover { background-color: #0056b3; }
-    .layout-container { display: flex; gap: 24px; }
-    .input-panel { width: 50%; padding-right: 24px; border-right: 1px solid #ccc; }
-    .output-panel { width: 50%; }
+    /* 変更点: コンテナの高さを画面の高さに固定 */
+    .layout-container { 
+      display: flex; 
+      gap: 24px; 
+      height: 100vh; /* コンテナの高さをビューポート(画面表示領域)の100%に固定 */
+    }
+    /* 変更点: パネルの縦スクロールを有効に */
+    .input-panel { 
+      width: 50%; 
+      padding-right: 24px; 
+      border-right: 1px solid #ccc; 
+      overflow-y: auto; /* 内容がパネルの高さを超えたら、垂直スクロールバーを表示 */
+    }
+    /* 変更点: パネルの縦スクロールを有効に */
+    .output-panel { 
+      width: 50%; 
+      overflow-y: auto; /* 内容がパネルの高さを超えたら、垂直スクロールバーを表示 */
+    }
     @media (max-width: 800px) {
-      .layout-container { flex-direction: column; }
-      .input-panel, .output-panel { width: 100%; border-right: none; padding-right: 0; }
+      /* 変更点: スマホ表示ではbodyのスクロールを許可 */
+      body {
+        overflow: auto;
+      }
+      /* 変更点: スマホ表示では高さ固定を解除 */
+      .layout-container { 
+        flex-direction: column; 
+        height: auto; /* 高さ固定を解除し、コンテンツの長さに合わせる */
+      }
+      /* 変更点: スマホ表示ではパネルのスクロールを無効化 */
+      .input-panel, .output-panel { 
+        width: 100%; 
+        border-right: none; 
+        padding-right: 0; 
+        overflow-y: visible; /* パネル内のスクロールを無効化し、内容をすべて表示 */
+      }
     }
     .collapsible-header { padding: 4px 0; cursor: pointer; user-select: none; position: relative; margin-top: 16px; border-bottom: 1px solid transparent; }
     .collapsible-header.active { border-bottom: 1px solid #ccc; }
