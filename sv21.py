@@ -229,8 +229,6 @@ def calculate_chair_coordinates(params, layout_info):
     total_layout_width, total_layout_depth = _calculate_total_layout_size(params, layout_info, space_x, space_y, additional_width)
     
     offset_x = (params["hall_width"] - total_layout_width) / 2
-    if params["add_side_aisles"]:
-        offset_x += AISLE_WIDTH_CM
     offset_y = params["front_aisle_width"]
     
     total_chairs_to_draw = min(params["num_chairs"], layout_info["max"]) if layout_info["found"] else layout_info["max"]
