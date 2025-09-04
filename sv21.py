@@ -1,3 +1,5 @@
+#障害物に円も追加
+#左右バラバラにスクロール
 from flask import Flask, request, jsonify, render_template, Response
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -12,7 +14,7 @@ MAX_HALL_DIMENSION_CM = 15000
 MAX_CHAIR_DIMENSION_CM = 500
 MAX_CHAIR_COUNT = 50000
 AISLE_WIDTH_CM = 100
-MAX_SPACING_SEARCH_CM = 100
+MAX_SPACING_SEARCH_CM = 300
 SPACING_SEARCH_STEP_CM = 5
 LARGE_DEFAULT_AISLE_INTERVAL = 10**9
 
