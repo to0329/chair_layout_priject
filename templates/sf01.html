@@ -388,7 +388,7 @@
         }
   
         // 詳細なレイアウト情報を表示
-        display.appendChild(document.createTextNode(`\n最大配置可能数： ${result.cols}列 × ${result.rows}行 = ${result.total}脚\n` + `壁からの距離：横${result.offset_x}cm 縦${result.offset_y}cm\n` + `間隔：横${result.spacing_x}cm 縦${result.spacing_y}cm`));
+        display.appendChild(document.createTextNode(`\n最大配置可能数： ${result.cols}列 × ${result.rows}行 = ${result.max}脚\n` + `壁からの距離：横${result.offset_x}cm 縦${result.offset_y}cm\n` + `間隔：横${result.spacing_x}cm 縦${result.spacing_y}cm`));
         if (zigzag_checked && result.zigzag_offset > 0) {
           display.appendChild(document.createTextNode(`\nジグザグのズレ：${result.zigzag_offset.toFixed(1)}cm`));
         }
