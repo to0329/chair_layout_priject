@@ -6,7 +6,6 @@
 
   <meta name="google-site-verification" content="AXz5_dUosCYMj6jNapTpVmyEFWeTlV46AcrwSXdQCn0" />
   <meta name="description" content="無料で使えるイス配置シミュレータ。会場とイスのサイズ、イスの数を入力するだけで、レイアウト図を自動作成。イベントの準備に最適です。">
-
   <meta property="og:url" content="https://chair-layout.onrender.com">
   <meta property="og:type" content="website">
   <meta property="og:title" content="イス配置シミュレータ | イベント会場の座席数を自動計算">
@@ -16,61 +15,65 @@
   <link rel="canonical" href="https://chair-layout.onrender.com">
   
   <link rel="icon" href="{{ url_for('static', filename='logo.png') }}" type="image/png">
-  
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='logo_180x180.png', _external=True) }}">
 
   <style>
-    /* 変更点: bodyのスクロールを原則無効に */
+    /* --- CSS スタイル定義 --- */
     body { 
       font-size: 14px; 
       line-height: 1.6; 
-      overflow: hidden; /* ページ全体のスクロールバーを非表示にする */
+      /* PC表示では、ページ全体のスクロールを禁止し、パネル内のスクロールを有効にする */
+      overflow: hidden; 
     }
     h1 { font-size: 22px; color: #333; background-color: #f0f0f0; padding: 10px 15px; border-radius: 5px; text-align: center; margin-bottom: 24px; border: 1px solid #ccc; }
     h3 { font-size: 18px; }
     p { margin-bottom: 8px; }
     .settings_panel { display: none; border-left: 2px solid #696969; padding-left: 15px; margin-left: 10px; }
-    #result { white-space: pre-wrap; }
+    #result { white-space: pre-wrap; } /* 結果表示の改行を有効にする */
     .highlight { font-weight: bold; }
     .calc-button { display: block; width: 100%; font-size: 18px; font-weight: bold; color: white; background-color: #007bff; border: none; padding: 12px 0; border-radius: 5px; cursor: pointer; margin-top: 20px; transition: background-color 0.2s; }
-    /* 変更点: コンテナの高さを画面の高さに固定 */
+    
+    /* PC表示用の2カラムレイアウト設定 */
     .layout-container { 
-      display: flex; 
+      display: flex; /* Flexboxを使用して子要素を横並びに */
       gap: 24px; 
-      height: 100vh; /* コンテナの高さをビューポート(画面表示領域)の100%に固定 */
+      height: 100vh; /* コンテナの高さを画面の高さに固定 */
     }
-    /* 変更点: パネルの縦スクロールを有効に */
+    /* 入力パネル: 垂直スクロールを有効にする */
     .input-panel { 
       width: 50%; 
       padding-right: 24px; 
       border-right: 1px solid #ccc; 
-      overflow-y: auto; /* 内容がパネルの高さを超えたら、垂直スクロールバーを表示 */
+      overflow-y: auto; /* 内容がはみ出たら垂直スクロールバーを表示 */
     }
-    /* 変更点: パネルの縦スクロールを有効に */
+    /* 出力パネル: 垂直スクロールを有効にする */
     .output-panel { 
       width: 50%; 
-      overflow-y: auto; /* 内容がパネルの高さを超えたら、垂直スクロールバーを表示 */
+      overflow-y: auto; /* 内容がはみ出たら垂直スクロールバーを表示 */
     }
+
+    /* スマートフォン表示用のレスポンシブ設定 (画面幅が800px以下の場合に適用) */
     @media (max-width: 800px) {
-      /* 変更点: スマホ表示ではbodyのスクロールを許可 */
       body {
+        /* スマホではページ全体のスクロールを許可する */
         overflow: auto;
       }
-      /* 変更点: スマホ表示では高さ固定を解除 */
       .layout-container { 
-        flex-direction: column; 
-        height: auto; /* 高さ固定を解除し、コンテンツの長さに合わせる */
+        flex-direction: column; /* 要素を縦並びに変更 */
+        height: auto; /* 高さ固定を解除 */
       }
-      /* 変更点: スマホ表示ではパネルのスクロールを無効化 */
       .input-panel, .output-panel { 
         width: 100%; 
         border-right: none; 
         padding-right: 0; 
-        overflow-y: visible; /* パネル内のスクロールを無効化し、内容をすべて表示 */
+        overflow-y: visible; /* パネル内のスクロールを無効化 */
       }
     }
+
+    /* 折りたたみ可能な設定セクションのスタイル */
     .collapsible-header { padding: 4px 0; cursor: pointer; user-select: none; position: relative; margin-top: 16px; border-bottom: 1px solid transparent; }
     .collapsible-header.active { border-bottom: 1px solid #ccc; }
+    /* '+' と '−' のアイコンを疑似要素で表示 */
     .collapsible-header::after { content: '+'; font-weight: bold; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 20px; color: #777; }
     .collapsible-header.active::after { content: '−'; }
     .collapsible-content { display: none; padding: 10px 0 5px 0; }
@@ -85,6 +88,7 @@
         <strong>イベント会場のイス配置でお悩みですか？</strong><br>
         このツールは、会場とイスのサイズ、イスの数を入力するとレイアウトを画像として出力します。
       </p>
+
       <h3>入力<span style="color: red; font-size: 70%;">（必須）</span></h3>
       <p>会場のサイズ：<input id="hall_depth" placeholder="会場の奥行き (m)" value="30">m × <input id="hall_width" placeholder="会場の幅 (m)" value="20">m</p>
       <p>イスのサイズ：<input id="chair_depth" placeholder="イスの奥行き (cm)" value="50">cm × <input id="chair_width" placeholder="イスの幅 (cm)" value="50">cm</p>
@@ -153,15 +157,21 @@
       </div>
       <button onclick="sendData()" class="calc-button">計算</button>
     </div>
+    
     <div class="output-panel">
       <p id="loading" style="display: none; font-weight: bold;">処理中…</p>
       <p id="result"></p>
       <canvas id="layoutCanvas" style="max-width: 350px; width: 100%; border: 1px solid black; display: none;"></canvas>
     </div>
   </div>
+
   <script>
+    // 追加された障害物オブジェクトを格納するグローバル配列
     let obstacles = [];
 
+    /**
+     * 障害物の「形状」セレクトボックスの変更に応じて、表示する入力欄を切り替える関数
+     */
     function updateObstacleInputs() {
         const shape = document.getElementById('obstacle_shape').value;
         const rectInputs = document.getElementById('rect_inputs');
@@ -172,21 +182,25 @@
             rectInputs.style.display = 'none';
             circleInputs.style.display = 'block';
             posLabel.textContent = '中心位置(cm)：';
-        } else {
+        } else { // rectangle
             rectInputs.style.display = 'block';
             circleInputs.style.display = 'none';
             posLabel.textContent = '位置(左上/cm)：';
         }
     }
 
+    /**
+     * 「障害物を追加」ボタンが押されたときに、入力値をオブジェクト化してobstacles配列に追加する関数
+     */
     function addObstacle() {
       const shape = document.getElementById('obstacle_shape').value;
       const x = parseInt(document.getElementById('obstacle_x').value);
       const y = parseInt(document.getElementById('obstacle_y').value);
       
       let newObstacle = { type: shape, x, y };
-      let isValid = !isNaN(x) && !isNaN(y);
+      let isValid = !isNaN(x) && !isNaN(y); // x, yが有効な数値かチェック
 
+      // 形状に応じて必要なサイズ情報を取得し、バリデーション
       if (shape === 'rectangle') {
         const width = parseInt(document.getElementById('obstacle_width').value);
         const depth = parseInt(document.getElementById('obstacle_depth').value);
@@ -198,18 +212,22 @@
         Object.assign(newObstacle, { radius });
       }
 
+      // 入力値が無効な場合はアラートを表示して処理を中断
       if (!isValid) {
         alert('障害物の全ての値をcm単位で入力してください。');
         return;
       }
       
-      obstacles.push(newObstacle);
-      updateObstacleList();
+      obstacles.push(newObstacle); // 配列に障害物を追加
+      updateObstacleList(); // 画面のリスト表示を更新
     }
 
+    /**
+     * obstacles配列の内容を元に、画面上の障害物リスト（<ul>）を再描画する関数
+     */
     function updateObstacleList() {
       const list = document.getElementById('obstacle_list');
-      list.innerHTML = '';
+      list.innerHTML = ''; // リストを一旦空にする
       obstacles.forEach((obs, index) => {
         const item = document.createElement('li');
         let text = `障害物${index + 1}: `;
@@ -220,26 +238,32 @@
         }
         item.textContent = text;
         
+        // 削除ボタンを作成
         const removeBtn = document.createElement('button');
         removeBtn.textContent = '削除';
         removeBtn.style.marginLeft = '10px';
         removeBtn.onclick = () => {
-          obstacles.splice(index, 1);
-          updateObstacleList();
+          obstacles.splice(index, 1); // 配列から該当の障害物を削除
+          updateObstacleList(); // リスト表示を再更新
         };
         item.appendChild(removeBtn);
         list.appendChild(item);
       });
     }
 
+    /**
+     * 「通路のタイプ」セレクトボックスの変更に応じて、詳細設定パネルの表示/非表示を切り替える関数
+     */
     function updateAisleSettings() {
       const mode = document.getElementById("aisle_mode").value;
       const panel_every_n = document.getElementById("aisle_settings_every_n");
       const panel_fixed_number = document.getElementById("aisle_settings_fixed_number");
   
+      // いったんすべてのパネルを非表示に
       panel_every_n.style.display = "none";
       panel_fixed_number.style.display = "none";
   
+      // 選択されたモードに対応するパネルだけを表示
       if (mode === "every_n") {
         panel_every_n.style.display = "block";
       } else if (mode === "fixed_number") {
@@ -247,15 +271,20 @@
       }
     }
   
+    /**
+     * ページの読み込みが完了したときに実行される初期化処理
+     */
     document.addEventListener("DOMContentLoaded", function() {
-      updateAisleSettings();
-      updateObstacleInputs();
+      updateAisleSettings(); // 通路設定パネルの初期状態を設定
+      updateObstacleInputs(); // 障害物入力欄の初期状態を設定
+      
+      // すべての折りたたみヘッダーにクリックイベントを設定
       const collapsibleHeaders = document.querySelectorAll(".collapsible-header");
-  
       collapsibleHeaders.forEach(header => {
         header.addEventListener("click", function() {
-          this.classList.toggle("active");
-          const content = this.nextElementSibling;
+          this.classList.toggle("active"); // activeクラスを付け外し
+          const content = this.nextElementSibling; // ヘッダーの次の要素（コンテンツ部分）
+          // コンテンツの表示/非表示を切り替え
           if (content.style.display === "block") {
             content.style.display = "none";
           } else {
@@ -265,11 +294,16 @@
       });
     });
   
+    /**
+     * 「計算」ボタンが押されたときのメイン処理。
+     * 入力値を取得し、サーバーに送信して、結果を受け取って表示します。
+     */
     async function sendData() {
       const loadingMessage = document.getElementById("loading");
       const resultDisplay = document.getElementById("result");
       const canvasDisplay = document.getElementById("layoutCanvas");
   
+      // 計算開始前に、ローディング表示をONにし、前回の結果をクリア
       loadingMessage.style.display = "block";
       resultDisplay.innerHTML = '';
       canvasDisplay.style.display = "none";
@@ -277,7 +311,9 @@
       const mode = document.getElementById("aisle_mode").value;
       const zigzag_checked = document.getElementById("zigzag_layout").checked;
   
+      // フォームから入力値を取得し、サーバーのAPI仕様に合わせたJSONオブジェクトを作成
       const data = {
+        // 会場のサイズはメートル(m)からセンチメートル(cm)に変換
         hall_width: parseFloat(document.getElementById("hall_width").value) * 100,
         hall_depth: parseFloat(document.getElementById("hall_depth").value) * 100,
         chair_width: parseInt(document.getElementById("chair_width").value),
@@ -289,9 +325,10 @@
         front_aisle_width: parseInt(document.getElementById("front_aisle_width").value),
         min_spacing_x: parseInt(document.getElementById("min_spacing_x").value),
         min_spacing_y: parseInt(document.getElementById("min_spacing_y").value),
-        obstacles: obstacles
+        obstacles: obstacles // グローバル変数から障害物リストを取得
       };
   
+      // 通路モードに応じて、関連するデータを追加
       if (mode === "every_n") {
         data.aisle_every_x = parseInt(document.getElementById("aisle_every_x").value);
         data.aisle_every_y = parseInt(document.getElementById("aisle_every_y").value);
@@ -301,20 +338,23 @@
       }
   
       try {
+        // fetch APIを使って、サーバーの/calculateエンドポイントにPOSTリクエストを送信
         const response = await fetch("/calculate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         });
-        const result = await response.json();
+        const result = await response.json(); // レスポンスをJSONとして解析
         const display = document.getElementById("result");
         display.innerHTML = '';
   
+        // サーバーからエラーが返ってきた場合
         if (result.error) {
             display.innerHTML = `<span class="highlight" style="color: red;">エラー:</span> ${result.error}`;
             return;
         }
 
+        // 1脚も配置できなかった場合
         if (!result.coords || result.coords.length === 0) {
           const strongText = document.createElement('span');
           strongText.className = 'highlight';
@@ -324,15 +364,17 @@
           return;
         }
   
+        // Canvasにレイアウト図を描画
         drawLayout(result);
   
-        if (result.found) {
+        // --- 計算結果のテキスト表示 ---
+        if (result.found) { // 要求数を満たせた場合
           const strongText = document.createElement('span');
           strongText.className = 'highlight';
           strongText.textContent = `配置完了！ ${result.total}脚のイスを配置しました。`;
           display.appendChild(strongText);
           display.appendChild(document.createTextNode(`\n(ご希望の${data.num_chairs}脚を満たしています)`));
-        } else {
+        } else { // 要求数を満たせなかった場合
           const strongText1 = document.createElement('span');
           strongText1.className = 'highlight';
           strongText1.textContent = 'ご希望の数を配置できませんでした。';
@@ -345,33 +387,44 @@
           display.appendChild(document.createTextNode('）のレイアウトを表示します。\n'));
         }
   
-        display.appendChild(document.createTextNode(`\n最大配置可能数： ${result.cols}列 × ${result.rows}行 = ${result.max}脚\n` + `壁からの距離：横${result.offset_x}cm 縦${result.offset_y}cm\n` + `間隔：横${result.spacing_x}cm 縦${result.spacing_y}cm`));
+        // 詳細なレイアウト情報を表示
+        display.appendChild(document.createTextNode(`\n最大配置可能数： ${result.cols}列 × ${result.rows}行 = ${result.total}脚\n` + `壁からの距離：横${result.offset_x}cm 縦${result.offset_y}cm\n` + `間隔：横${result.spacing_x}cm 縦${result.spacing_y}cm`));
         if (zigzag_checked && result.zigzag_offset > 0) {
           display.appendChild(document.createTextNode(`\nジグザグのズレ：${result.zigzag_offset.toFixed(1)}cm`));
         }
   
       } catch (error) {
+        // ネットワークエラーなど、fetch自体が失敗した場合
         console.error("エラーが発生しました:", error);
         resultDisplay.textContent = "エラーが発生しました。時間を置いて再度お試しください。";
       } finally {
+        // 成功・失敗にかかわらず、最後にローディング表示をOFFにする
         loadingMessage.style.display = "none";
       }
     }
   
-    // ▼▼▼ 変更: 寸法線描画ロジックを完全な形で復活 ▼▼▼
+    /**
+     * サーバーから受け取ったデータをもとに、Canvasにレイアウト図を描画する関数
+     * @param {object} data - サーバーからの計算結果JSONオブジェクト
+     */
     function drawLayout(data) {
         const canvas = document.getElementById("layoutCanvas");
         const ctx = canvas.getContext("2d");
     
+        // Canvasの内部解像度を会場のサイズ（cm単位）に合わせる
         canvas.width = data.hall_width;
         canvas.height = data.hall_depth;
-        canvas.style.display = "block";
+        canvas.style.display = "block"; // Canvasを表示
     
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // --- 描画開始 ---
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // Canvasをクリア
+        
+        // 1. 会場の外枠を描画
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 5;
         ctx.strokeRect(0, 0, data.hall_width, data.hall_depth);
     
+        // 2. イスを描画
         ctx.fillStyle = 'skyblue';
         ctx.strokeStyle = 'gray';
         ctx.lineWidth = 1;
@@ -381,8 +434,9 @@
             ctx.strokeRect(x, y, data.chair_width, data.chair_depth);
         });
         
+        // 3. 障害物を描画
         if (data.obstacles) {
-            ctx.fillStyle = 'rgba(128, 128, 128, 0.8)';
+            ctx.fillStyle = 'rgba(128, 128, 128, 0.8)'; // 半透明のグレー
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 2;
             data.obstacles.forEach(obs => {
@@ -398,138 +452,134 @@
             });
         }
         
+        // イスが一つもなければ、寸法線は描画しない
         if (data.coords.length === 0) {
             return;
         }
 
+        // --- 4. 寸法線と数値を描画 ---
         const fontSize = Math.max(12, Math.min(data.chair_width, data.chair_depth) * 0.25);
         ctx.font = `bold ${fontSize}px sans-serif`;
 
-        // --- イスとイスの間隔を描画 ---
+        // 4-1. イスとイスの間隔を描画 (赤色)
         ctx.fillStyle = '#d33';
         ctx.strokeStyle = '#d33';
         ctx.lineWidth = 2;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        if (data.cols > 1 && data.coords.length >= 2) {
+        if (data.cols > 1 && data.coords.length >= 2) { // 横の間隔
             const chair1 = data.coords[0]; const chair2 = data.coords[1];
             const startX = chair1[0] + data.chair_width; const endX = chair2[0];
             const midY = chair1[1] + data.chair_depth / 2;
             ctx.beginPath();
-            ctx.moveTo(startX, midY); ctx.lineTo(endX, midY);
-            ctx.moveTo(startX, midY - 10); ctx.lineTo(startX, midY + 10);
-            ctx.moveTo(endX, midY - 10); ctx.lineTo(endX, midY + 10);
+            ctx.moveTo(startX, midY); ctx.lineTo(endX, midY); // 水平線
+            ctx.moveTo(startX, midY - 10); ctx.lineTo(startX, midY + 10); // 左端のケバ
+            ctx.moveTo(endX, midY - 10); ctx.lineTo(endX, midY + 10); // 右端のケバ
             ctx.stroke();
             ctx.fillText(`${data.spacing_x} cm`, startX + data.spacing_x / 2, midY - fontSize);
         }
-        if (data.rows > 1 && data.coords.length > data.cols) {
+        if (data.rows > 1 && data.coords.length > data.cols) { // 縦の間隔
             const chair1 = data.coords[0]; const chair2 = data.coords[data.cols];
             const startY = chair1[1] + data.chair_depth; const endY = chair2[1];
             const midX = chair1[0] + data.chair_width / 2;
             ctx.beginPath();
-            ctx.moveTo(midX, startY); ctx.lineTo(midX, endY);
-            ctx.moveTo(midX - 10, startY); ctx.lineTo(midX + 10, startY);
-            ctx.moveTo(midX - 10, endY); ctx.lineTo(midX + 10, endY);
+            ctx.moveTo(midX, startY); ctx.lineTo(midX, endY); // 垂直線
+            ctx.moveTo(midX - 10, startY); ctx.lineTo(midX + 10, startY); // 上端のケバ
+            ctx.moveTo(midX - 10, endY); ctx.lineTo(midX + 10, endY); // 下端のケバ
             ctx.stroke();
             ctx.fillText(`${data.spacing_y} cm`, midX + fontSize, startY + data.spacing_y / 2);
         }
         
-        // --- 壁とイスの間の距離を描画 ---
+        // 4-2. 壁とイスの間の距離を描画 (青色)
         ctx.fillStyle = '#007bff';
         ctx.strokeStyle = '#007bff';
         const firstChair = data.coords[0];
         const lastChairInFirstRow = data.coords[Math.min(data.cols - 1, data.coords.length - 1)];
         const lastChair = data.coords[data.coords.length - 1];
+        
+        // 上の壁との距離
         ctx.textAlign = 'left';
         const topTextX = firstChair[0] + data.chair_width / 2;
         const topTextY = firstChair[1] / 2;
-        ctx.beginPath();
-        ctx.moveTo(topTextX - 10, 0); ctx.lineTo(topTextX + 10, 0);
-        ctx.moveTo(topTextX, 0); ctx.lineTo(topTextX, firstChair[1]);
-        ctx.moveTo(topTextX - 10, firstChair[1]); ctx.lineTo(topTextX + 10, firstChair[1]);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(topTextX - 10, 0); ctx.lineTo(topTextX + 10, 0); ctx.moveTo(topTextX, 0); ctx.lineTo(topTextX, firstChair[1]); ctx.moveTo(topTextX - 10, firstChair[1]); ctx.lineTo(topTextX + 10, firstChair[1]); ctx.stroke();
         ctx.fillText(`${data.offset_y} cm`, topTextX + 15, topTextY);
+        
+        // 左の壁との距離
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         const leftTextX = firstChair[0] / 2;
         const leftTextY = firstChair[1] + data.chair_depth / 2;
-        ctx.beginPath();
-        ctx.moveTo(0, leftTextY - 10); ctx.lineTo(0, leftTextY + 10);
-        ctx.moveTo(0, leftTextY); ctx.lineTo(firstChair[0], leftTextY);
-        ctx.moveTo(firstChair[0], leftTextY - 10); ctx.lineTo(firstChair[0], leftTextY + 10);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, leftTextY - 10); ctx.lineTo(0, leftTextY + 10); ctx.moveTo(0, leftTextY); ctx.lineTo(firstChair[0], leftTextY); ctx.moveTo(firstChair[0], leftTextY - 10); ctx.lineTo(firstChair[0], leftTextY + 10); ctx.stroke();
         ctx.fillText(`${data.offset_x} cm`, leftTextX, leftTextY - 5);
+        
+        // 右の壁との距離
         const rightStartX = lastChairInFirstRow[0] + data.chair_width;
         const rightGap = data.hall_width - rightStartX;
         const rightTextX = rightStartX + rightGap / 2;
         const rightTextY = lastChairInFirstRow[1] + data.chair_depth / 2;
-        ctx.beginPath();
-        ctx.moveTo(rightStartX, rightTextY - 10); ctx.lineTo(rightStartX, rightTextY + 10);
-        ctx.moveTo(rightStartX, rightTextY); ctx.lineTo(data.hall_width, rightTextY);
-        ctx.moveTo(data.hall_width, rightTextY - 10); ctx.lineTo(data.hall_width, rightTextY + 10);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(rightStartX, rightTextY - 10); ctx.lineTo(rightStartX, rightTextY + 10); ctx.moveTo(rightStartX, rightTextY); ctx.lineTo(data.hall_width, rightTextY); ctx.moveTo(data.hall_width, rightTextY - 10); ctx.lineTo(data.hall_width, rightTextY + 10); ctx.stroke();
         ctx.fillText(`${Math.round(rightGap)} cm`, rightTextX, rightTextY - 5);
+        
+        // 下の壁との距離
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         const bottomStartY = lastChair[1] + data.chair_depth;
         const bottomGap = data.hall_depth - bottomStartY;
         const bottomTextX = lastChair[0] + data.chair_width / 2;
         const bottomTextY = bottomStartY + bottomGap / 2;
-        ctx.beginPath();
-        ctx.moveTo(bottomTextX - 10, bottomStartY); ctx.lineTo(bottomTextX + 10, bottomStartY);
-        ctx.moveTo(bottomTextX, bottomStartY); ctx.lineTo(bottomTextX, data.hall_depth);
-        ctx.moveTo(bottomTextX - 10, data.hall_depth); ctx.lineTo(bottomTextX + 10, data.hall_depth);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(bottomTextX - 10, bottomStartY); ctx.lineTo(bottomTextX + 10, bottomStartY); ctx.moveTo(bottomTextX, bottomStartY); ctx.lineTo(bottomTextX, data.hall_depth); ctx.moveTo(bottomTextX - 10, data.hall_depth); ctx.lineTo(bottomTextX + 10, data.hall_depth); ctx.stroke();
         ctx.fillText(`${Math.round(bottomGap)} cm`, bottomTextX + 15, bottomTextY);
         
-        // --- 障害物とイスの間の距離を描画 ---
+        // 4-3. 障害物とイスの間の距離を描画 (緑色)
         if (data.obstacles && data.coords.length > 0) {
             ctx.fillStyle = '#28a745';
             ctx.strokeStyle = '#28a745';
 
             data.obstacles.forEach(obs => {
+                // 各障害物の上下左右で最も近いイスとその距離を保持するオブジェクト
                 let minDist = { top: Infinity, bottom: Infinity, left: Infinity, right: Infinity };
                 let nearestChair = { top: null, bottom: null, left: null, right: null };
 
+                // 全てのイスをチェックして、最も近いイスを探す
                 data.coords.forEach(coord => {
                     const chair = { x: coord[0], y: coord[1], width: data.chair_width, depth: data.chair_depth };
                     
                     if (obs.type === 'circle') {
-                        // 円の垂直範囲内にあるか
+                        // 円の垂直方向の中心線と重なる範囲にあるか
                         if (chair.y + chair.depth > obs.y - obs.radius && chair.y < obs.y + obs.radius) {
-                            if (chair.x < obs.x - obs.radius) { // 左
+                            if (chair.x < obs.x - obs.radius) { // 障害物の左側にあるイス
                                 const dist = (obs.x - obs.radius) - (chair.x + chair.width);
                                 if (dist >= 0 && dist < minDist.left) { minDist.left = dist; nearestChair.left = chair; }
-                            } else if (chair.x > obs.x + obs.radius) { // 右
+                            } else if (chair.x > obs.x + obs.radius) { // 障害物の右側にあるイス
                                 const dist = chair.x - (obs.x + obs.radius);
                                 if (dist >= 0 && dist < minDist.right) { minDist.right = dist; nearestChair.right = chair; }
                             }
                         }
-                        // 円の水平範囲内にあるか
+                        // 円の水平方向の中心線と重なる範囲にあるか
                         if (chair.x + chair.width > obs.x - obs.radius && chair.x < obs.x + obs.radius) {
-                            if (chair.y < obs.y - obs.radius) { // 上
+                            if (chair.y < obs.y - obs.radius) { // 障害物の上側にあるイス
                                 const dist = (obs.y - obs.radius) - (chair.y + chair.depth);
                                 if (dist >= 0 && dist < minDist.top) { minDist.top = dist; nearestChair.top = chair; }
-                            } else if (chair.y > obs.y + obs.radius) { // 下
+                            } else if (chair.y > obs.y + obs.radius) { // 障害物の下側にあるイス
                                 const dist = chair.y - (obs.y + obs.radius);
                                 if (dist >= 0 && dist < minDist.bottom) { minDist.bottom = dist; nearestChair.bottom = chair; }
                             }
                         }
                     } else { // rectangle
                         if (chair.y + chair.depth > obs.y && chair.y < obs.y + obs.depth) {
-                            if (chair.x < obs.x) {
+                            if (chair.x < obs.x) { // 左
                                 const dist = obs.x - (chair.x + chair.width);
                                 if (dist >= 0 && dist < minDist.left) { minDist.left = dist; nearestChair.left = chair; }
-                            } else {
+                            } else { // 右
                                 const dist = chair.x - (obs.x + obs.width);
                                  if (dist >= 0 && dist < minDist.right) { minDist.right = dist; nearestChair.right = chair; }
                             }
                         }
                         if (chair.x + chair.width > obs.x && chair.x < obs.x + obs.width) {
-                             if (chair.y < obs.y) {
+                             if (chair.y < obs.y) { // 上
                                 const dist = obs.y - (chair.y + chair.depth);
                                  if (dist >= 0 && dist < minDist.top) { minDist.top = dist; nearestChair.top = chair; }
-                            } else {
+                            } else { // 下
                                 const dist = chair.y - (obs.y + obs.depth);
                                 if (dist >= 0 && dist < minDist.bottom) { minDist.bottom = dist; nearestChair.bottom = chair; }
                             }
@@ -537,6 +587,7 @@
                     }
                 });
                 
+                // 見つかった最も近いイスとの間に寸法線を描画
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 
@@ -544,33 +595,22 @@
                     const xStart = nearestChair.left.x + nearestChair.left.width;
                     const xEnd = (obs.type === 'circle') ? obs.x - obs.radius : obs.x;
                     const y = (obs.type === 'circle') ? obs.y : obs.y + obs.depth / 2;
-                    ctx.beginPath();
-                    ctx.moveTo(xStart, y); ctx.lineTo(xEnd, y);
-                    ctx.moveTo(xStart, y - 10); ctx.lineTo(xStart, y + 10);
-                    ctx.moveTo(xEnd, y - 10); ctx.lineTo(xEnd, y + 10);
-                    ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(xStart, y); ctx.lineTo(xEnd, y); ctx.moveTo(xStart, y - 10); ctx.lineTo(xStart, y + 10); ctx.moveTo(xEnd, y - 10); ctx.lineTo(xEnd, y + 10); ctx.stroke();
                     ctx.fillText(`${Math.round(minDist.left)} cm`, xStart + minDist.left / 2, y - fontSize);
                 }
                 if (nearestChair.right) {
                     const xStart = (obs.type === 'circle') ? obs.x + obs.radius : obs.x + obs.width;
                     const xEnd = nearestChair.right.x;
                     const y = (obs.type === 'circle') ? obs.y : obs.y + obs.depth / 2;
-                    ctx.beginPath();
-                    ctx.moveTo(xStart, y); ctx.lineTo(xEnd, y);
-                    ctx.moveTo(xStart, y - 10); ctx.lineTo(xStart, y + 10);
-                    ctx.moveTo(xEnd, y - 10); ctx.lineTo(xEnd, y + 10);
-                    ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(xStart, y); ctx.lineTo(xEnd, y); ctx.moveTo(xStart, y - 10); ctx.lineTo(xStart, y + 10); ctx.moveTo(xEnd, y - 10); ctx.lineTo(xEnd, y + 10); ctx.stroke();
                     ctx.fillText(`${Math.round(minDist.right)} cm`, xStart + minDist.right / 2, y - fontSize);
                 }
+                // 縦方向の寸法テキストは90度回転させて表示
                 if (nearestChair.top) {
                     const yStart = nearestChair.top.y + nearestChair.top.depth;
                     const yEnd = (obs.type === 'circle') ? obs.y - obs.radius : obs.y;
                     const x = (obs.type === 'circle') ? obs.x : obs.x + obs.width / 2;
-                    ctx.beginPath();
-                    ctx.moveTo(x, yStart); ctx.lineTo(x, yEnd);
-                    ctx.moveTo(x - 10, yStart); ctx.lineTo(x + 10, yStart);
-                    ctx.moveTo(x - 10, yEnd); ctx.lineTo(x + 10, yEnd);
-                    ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(x, yStart); ctx.lineTo(x, yEnd); ctx.moveTo(x - 10, yStart); ctx.lineTo(x + 10, yStart); ctx.moveTo(x - 10, yEnd); ctx.lineTo(x + 10, yEnd); ctx.stroke();
                     ctx.save(); ctx.translate(x - fontSize, yStart + minDist.top / 2); ctx.rotate(-Math.PI/2); ctx.textAlign = 'center';
                     ctx.fillText(`${Math.round(minDist.top)} cm`, 0, 0); ctx.restore();
                 }
@@ -578,18 +618,13 @@
                     const yStart = (obs.type === 'circle') ? obs.y + obs.radius : obs.y + obs.depth;
                     const yEnd = nearestChair.bottom.y;
                     const x = (obs.type === 'circle') ? obs.x : obs.x + obs.width / 2;
-                    ctx.beginPath();
-                    ctx.moveTo(x, yStart); ctx.lineTo(x, yEnd);
-                    ctx.moveTo(x - 10, yStart); ctx.lineTo(x + 10, yStart);
-                    ctx.moveTo(x - 10, yEnd); ctx.lineTo(x + 10, yEnd);
-                    ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(x, yStart); ctx.lineTo(x, yEnd); ctx.moveTo(x - 10, yStart); ctx.lineTo(x + 10, yStart); ctx.moveTo(x - 10, yEnd); ctx.lineTo(x + 10, yEnd); ctx.stroke();
                     ctx.save(); ctx.translate(x - fontSize, yStart + minDist.bottom / 2); ctx.rotate(-Math.PI/2); ctx.textAlign = 'center';
                     ctx.fillText(`${Math.round(minDist.bottom)} cm`, 0, 0); ctx.restore();
                 }
             });
         }
     }
-    // ▲▲▲ 変更ここまで ▲▲▲
   </script>
 </body>
 </html>
