@@ -1,3 +1,4 @@
+#スマホだと左右に分割しないように
 from flask import Flask, request, jsonify, render_template, Response
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -442,7 +443,7 @@ def index():
     """
     ルートURL ("/") にアクセスがあった場合に、メインのHTMLページを返します。
     """
-    return render_template("sf01.html")
+    return render_template("sf02.html")
 
 @app.route("/calculate", methods=["POST"])
 @limiter.limit("10 per minute") # エンドポイント個別のレートリミット
