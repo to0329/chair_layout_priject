@@ -53,6 +53,18 @@
       overflow-y: auto; /* 内容がはみ出たら垂直スクロールバーを表示 */
     }
 
+    /* ▼▼▼【変更点】すべての入力欄に共通のスタイルを適用 ▼▼▼ */
+    .input-panel input[type="text"],
+    .input-panel input[type="number"] {
+        width: 80px;
+        padding: 5px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+    /* ▲▲▲【変更点】ここまで ▲▲▲ */
+
+
     /* スマートフォン表示用のレスポンシブ設定 (画面幅が800px以下の場合に適用) */
     @media (max-width: 800px) {
       body {
@@ -75,10 +87,10 @@
       }
       .input-panel input[type="text"],
       .input-panel input[type="number"] {
-        width: 20%;            /* 入力欄の幅を親要素の30%に指定 */
+        width: 25%; /* スマホでは少し幅を広めに設定 */
         box-sizing: border-box; 
-        padding: 8px 4px;      /* 横の余白を少し減らす */
-        font-size: 14px;       /* 入力欄の文字を少し小さくする */
+        padding: 2px 6px;
+        font-size: 14px;
       }
     }
 
@@ -102,13 +114,13 @@
       </p>
 
       <h3>入力<span style="color: red; font-size: 70%;">（必須）</span></h3>
-      <p>会場のサイズ：<input id="hall_depth" placeholder="会場の奥行き (m)" value="30">m × <input id="hall_width" placeholder="会場の幅 (m)" value="20">m</p>
-      <p>イスのサイズ：<input id="chair_depth" placeholder="イスの奥行き (cm)" value="50">cm × <input id="chair_width" placeholder="イスの幅 (cm)" value="50">cm</p>
-      <p>必要なイスの数：<input id="num_chairs" placeholder="イスの数" value="400">脚</p>
+      <p>会場のサイズ：<input type="number" id="hall_depth" placeholder="奥行き" value="30">m × <input type="number" id="hall_width" placeholder="幅" value="20">m</p>
+      <p>イスのサイズ：<input type="number" id="chair_depth" placeholder="奥行き" value="50">cm × <input type="number" id="chair_width" placeholder="幅" value="50">cm</p>
+      <p>必要なイスの数：<input type="number" id="num_chairs" placeholder="イスの数" value="400">脚</p>
 
       <h3 class="collapsible-header">通路のオプション</h3>
       <div class="collapsible-content">
-        <p>最前列の通路の幅：<input id="front_aisle_width" placeholder="最前列の通路の幅 (cm)" value="100">cm</p>
+        <p>最前列の通路の幅：<input type="number" id="front_aisle_width" placeholder="幅 (cm)" value="100">cm</p>
         <p><input type="checkbox" id="add_side_aisles"> 左右の端に通路を設置する</p>
         <p>
           <label for="aisle_mode">通路のタイプ：</label>
@@ -119,12 +131,12 @@
           </select>
         </p>
         <div id="aisle_settings_every_n" class="settings_panel">
-          <p>通路の間隔（横）：<input id="aisle_every_x" placeholder="通路の間隔（横）" value="3">脚おき</p>
-          <p>通路の間隔（縦）：<input id="aisle_every_y" placeholder="通路の間隔（縦）" value="3">脚おき</p>
+          <p>通路の間隔（横）：<input type="number" id="aisle_every_x" placeholder="脚数" value="3">脚おき</p>
+          <p>通路の間隔（縦）：<input type="number" id="aisle_every_y" placeholder="脚数" value="3">脚おき</p>
         </div>
         <div id="aisle_settings_fixed_number" class="settings_panel">
-          <p>通路の本数（縦）：<input id="num_aisles_x" placeholder="縦通路の本数" value="1">本</p>
-          <p>通路の本数（横）：<input id="num_aisles_y" placeholder="横通路の本数" value="1">本</p>
+          <p>通路の本数（縦）：<input type="number" id="num_aisles_x" placeholder="本数" value="1">本</p>
+          <p>通路の本数（横）：<input type="number" id="num_aisles_y" placeholder="本数" value="1">本</p>
         </div>
       </div>
       
@@ -163,8 +175,8 @@
 
       <h3 class="collapsible-header">その他のオプション</h3>
       <div class="collapsible-content">
-        <p>イス同士の最低の間隔（縦）：<input id="min_spacing_y" placeholder="縦の間隔 (cm)" value="100">cm</p>
-        <p>イス同士の最低の間隔（横）：<input id="min_spacing_x" placeholder="横の間隔 (cm)" value="20">cm</p>
+        <p>イス同士の最低の間隔（縦）：<input type="number" id="min_spacing_y" placeholder="間隔 (cm)" value="100">cm</p>
+        <p>イス同士の最低の間隔（横）：<input type="number" id="min_spacing_x" placeholder="間隔 (cm)" value="20">cm</p>
         <p><input type="checkbox" id="zigzag_layout"> イスをジグザグに配置する</p>
       </div>
       <button onclick="sendData()" class="calc-button">計算</button>
