@@ -53,7 +53,6 @@
       overflow-y: auto; /* 内容がはみ出たら垂直スクロールバーを表示 */
     }
 
-    /* ▼▼▼【変更点】すべての入力欄に共通のスタイルを適用 ▼▼▼ */
     .input-panel input[type="text"],
     .input-panel input[type="number"] {
         width: 80px;
@@ -62,7 +61,38 @@
         border-radius: 4px;
         box-sizing: border-box;
     }
-    /* ▲▲▲【変更点】ここまで ▲▲▲ */
+
+    /* ▼▼▼【追加】タブUIのスタイル ▼▼▼ */
+    .tab-headers {
+      display: flex;
+      border-bottom: 2px solid #ccc;
+      margin-bottom: 15px;
+    }
+    .tab-header {
+      padding: 10px 15px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-bottom: none;
+      margin-bottom: -2px; /* 下線をコンテナの線と重ねる */
+      background-color: #f1f1f1;
+    }
+    .tab-header:hover {
+      background-color: #ddd;
+    }
+    .tab-header.active {
+      background-color: #fff;
+      border-color: #ccc #ccc #fff #ccc; /* アクティブタブの下線だけ白に */
+      border-top-left-radius: 5px;
+      border-top-right-radius: 5px;
+      font-weight: bold;
+    }
+    .tab-content {
+      display: none; /* コンテンツは基本非表示 */
+    }
+    .tab-content.active {
+      display: block; /* アクティブなものだけ表示 */
+    }
+    /* ▲▲▲【追加】ここまで ▲▲▲ */
 
 
     /* スマートフォン表示用のレスポンシブ設定 (画面幅が800px以下の場合に適用) */
@@ -114,10 +144,29 @@
       </p>
 
       <h3>入力<span style="color: red; font-size: 70%;">（必須）</span></h3>
+
+      <div class="tab-container">
+        <div class="tab-headers">
+          <div class="tab-header active" onclick="switchTab(event, 'total')">総数から探す</div>
+          <div class="tab-header" onclick="switchTab(event, 'specific_grid')">列×行を指定</div>
+        </div>
+
+        <div class="tab-contents">
+          <div id="total" class="tab-content active">
+            <p>必要なイスの数：<input type="number" id="num_chairs" placeholder="イスの数" value="400">脚</p>
+          </div>
+          <div id="specific_grid" class="tab-content">
+            <p>
+              レイアウト：
+              <input type="number" id="specific_cols" placeholder="列数" value="20">列 ×
+              <input type="number" id="specific_rows" placeholder="行数" value="20">行
+            </p>
+          </div>
+        </div>
+      </div>
       <p>会場のサイズ：<input type="number" id="hall_depth" placeholder="会場の奥行き " value="30">m × <input type="number" id="hall_width" placeholder="会場の幅 " value="20">m</p>
       <p>イスのサイズ：<input type="number" id="chair_depth" placeholder="イスの奥行き " value="50">cm × <input type="number" id="chair_width" placeholder="イスの幅" value="50">cm</p>
-      <p>必要なイスの数：<input type="number" id="num_chairs" placeholder="イスの数" value="400">脚</p>
-
+      
       <h3 class="collapsible-header">通路のオプション</h3>
       <div class="collapsible-content">
         <p>最前列の通路の幅：<input type="number" id="front_aisle_width" placeholder="最前列の通路の幅" value="100">cm</p>
@@ -192,6 +241,25 @@
   <script>
     // 追加された障害物オブジェクトを格納するグローバル配列
     let obstacles = [];
+    // ▼▼▼【追加】現在の計算モードを保持する変数 ▼▼▼
+    let currentCalcMode = 'total';
+
+    /**
+     * ▼▼▼【追加】タブをクリックしたときに、表示を切り替える関数 ▼▼▼
+     */
+    function switchTab(event, mode) {
+      currentCalcMode = mode; // 現在のモードを更新
+
+      // すべてのタブコンテンツを非表示にし、ヘッダーのactiveクラスを削除
+      const tabContents = document.querySelectorAll('.tab-content');
+      tabContents.forEach(content => content.classList.remove('active'));
+      const tabHeaders = document.querySelectorAll('.tab-header');
+      tabHeaders.forEach(header => header.classList.remove('active'));
+
+      // クリックされたタブに対応するコンテンツを表示し、ヘッダーにactiveクラスを付与
+      document.getElementById(mode).classList.add('active');
+      event.currentTarget.classList.add('active');
+    }
 
     /**
      * 障害物の「形状」セレクトボックスの変更に応じて、表示する入力欄を切り替える関数
@@ -332,9 +400,6 @@
       resultDisplay.innerHTML = '';
       canvasDisplay.style.display = "none";
   
-      const mode = document.getElementById("aisle_mode").value;
-      const zigzag_checked = document.getElementById("zigzag_layout").checked;
-  
       // フォームから入力値を取得し、サーバーのAPI仕様に合わせたJSONオブジェクトを作成
       const data = {
         // 会場のサイズはメートル(m)からセンチメートル(cm)に変換
@@ -342,21 +407,30 @@
         hall_depth: parseFloat(document.getElementById("hall_depth").value) * 100,
         chair_width: parseInt(document.getElementById("chair_width").value),
         chair_depth: parseInt(document.getElementById("chair_depth").value),
-        num_chairs: parseInt(document.getElementById("num_chairs").value),
-        aisle_mode: mode,
+        aisle_mode: document.getElementById("aisle_mode").value,
         add_side_aisles: document.getElementById("add_side_aisles").checked,
-        zigzag_layout: zigzag_checked,
+        zigzag_layout: document.getElementById("zigzag_layout").checked,
         front_aisle_width: parseInt(document.getElementById("front_aisle_width").value),
         min_spacing_x: parseInt(document.getElementById("min_spacing_x").value),
         min_spacing_y: parseInt(document.getElementById("min_spacing_y").value),
-        obstacles: obstacles // グローバル変数から障害物リストを取得
+        obstacles: obstacles, // グローバル変数から障害物リストを取得
+        calculation_mode: currentCalcMode // ★現在のモードを送信
       };
+      
+      // ▼▼▼【修正】モードに応じて送信するデータを変更 ▼▼▼
+      if (currentCalcMode === 'specific_grid') {
+        data.specific_cols = parseInt(document.getElementById("specific_cols").value);
+        data.specific_rows = parseInt(document.getElementById("specific_rows").value);
+        data.num_chairs = data.specific_cols * data.specific_rows;
+      } else { // 'total'
+        data.num_chairs = parseInt(document.getElementById("num_chairs").value);
+      }
   
-      // 通路モードに応じて、関連するデータを追加
-      if (mode === "every_n") {
+      const aisle_mode = document.getElementById("aisle_mode").value;
+      if (aisle_mode === "every_n") {
         data.aisle_every_x = parseInt(document.getElementById("aisle_every_x").value);
         data.aisle_every_y = parseInt(document.getElementById("aisle_every_y").value);
-      } else if (mode === "fixed_number") {
+      } else if (aisle_mode === "fixed_number") {
         data.num_aisles_x = parseInt(document.getElementById("num_aisles_x").value);
         data.num_aisles_y = parseInt(document.getElementById("num_aisles_y").value);
       }
@@ -382,9 +456,15 @@
         if (!result.coords || result.coords.length === 0) {
           const strongText = document.createElement('span');
           strongText.className = 'highlight';
-          strongText.textContent = 'イスを1脚も配置できません！';
-          display.appendChild(strongText);
-          display.appendChild(document.createTextNode('\n会場やイスのサイズを見直してください。'));
+          if (currentCalcMode === 'specific_grid' && !result.found) {
+            strongText.textContent = '指定された列・行数ではイスを配置できません！';
+            display.appendChild(strongText);
+            display.appendChild(document.createTextNode('\n会場やイスのサイズ、通路設定を見直してください。'));
+          } else {
+            strongText.textContent = 'イスを1脚も配置できません！';
+            display.appendChild(strongText);
+            display.appendChild(document.createTextNode('\n会場やイスのサイズを見直してください。'));
+          }
           return;
         }
   
@@ -397,7 +477,9 @@
           strongText.className = 'highlight';
           strongText.textContent = `配置完了！ ${result.total}脚のイスを配置しました。`;
           display.appendChild(strongText);
-          display.appendChild(document.createTextNode(`\n(ご希望の${data.num_chairs}脚を満たしています)`));
+          if (currentCalcMode === 'total') {
+            display.appendChild(document.createTextNode(`\n(ご希望の${data.num_chairs}脚を満たしています)`));
+          }
         } else { // 要求数を満たせなかった場合
           const strongText1 = document.createElement('span');
           strongText1.className = 'highlight';
@@ -413,7 +495,7 @@
   
         // 詳細なレイアウト情報を表示
         display.appendChild(document.createTextNode(`\n最大配置可能数： ${result.cols}列 × ${result.rows}行 = ${result.max}脚\n` + `壁からの距離：横${result.offset_x}cm 縦${result.offset_y}cm\n` + `間隔：横${result.spacing_x}cm 縦${result.spacing_y}cm`));
-        if (zigzag_checked && result.zigzag_offset > 0) {
+        if (document.getElementById("zigzag_layout").checked && result.zigzag_offset > 0) {
           display.appendChild(document.createTextNode(`\nジグザグのズレ：${result.zigzag_offset.toFixed(1)}cm`));
         }
   
