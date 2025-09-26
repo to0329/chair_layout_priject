@@ -325,65 +325,47 @@ def _get_chair_position(params, layout_info, offset_x, offset_y, space_x, space_
 
 def calculate_chair_coordinates(params, layout_info):
     """
-    最終的に決定したレイアウト情報に基づき、配置されるすべての椅子の座標リストを生成します。
-    障害物との衝突判定や、障害物下のスペース確保もここで行います。
-
-    Args:
-        params (dict): 検証済みの入力パラメータ
-        layout_info (dict): find_optimal_layoutで決定したレイアウト情報
-
-    Returns:
-        dict: 椅子の座標リストや配置総数などを含む最終データ
+    【アルゴリズム修正】
+    最終レイアウトに基づき、まず配置可能な全ての椅子の座標を計算し、
+    そこから障害物を考慮した「真の最大配置可能数」を求めます。
     """
+    # --- ステップ1: グリッド上の全候補座標を生成 ---
     layout_cols, layout_rows = layout_info["cols"], layout_info["rows"]
     space_x = params["chair_width"] + layout_info["spacing_x"]
     space_y = params["chair_depth"] + layout_info["spacing_y"]
     additional_width = space_x / 2 if params["zigzag_layout"] else 0
     
-    # レイアウト全体のサイズを計算し、中央揃えにするためのオフセットを決定
     total_layout_width, total_layout_depth = _calculate_total_layout_size(params, layout_info, space_x, space_y, additional_width)
     offset_x = (params["hall_width"] - total_layout_width) / 2
     offset_y = params["front_aisle_width"]
     
-    # 実際に描画する椅子の数を決定
-    total_chairs_to_draw = min(params["num_chairs"], layout_info["max"]) if layout_info["found"] else layout_info["max"]
-    
-    # --- 座標の計算と障害物との衝突判定 ---
-    initial_coords = []
-    count = 0
+    all_potential_coords = []
     for row in range(int(layout_rows)):
-        if count >= total_chairs_to_draw: break
-        # ジグザグ配置の場合、奇数行にオフセットを追加
         zigzag_offset_x = space_x / 2 if params["zigzag_layout"] and row % 2 != 0 else 0
         for col in range(int(layout_cols)):
-            if count >= total_chairs_to_draw: break
-            
-            # 座標を計算
             x, y = _get_chair_position(params, layout_info, offset_x, offset_y, space_x, space_y, row, col, zigzag_offset_x)
-            
-            # 障害物と衝突しないかチェック
-            if not is_colliding(x, y, params["chair_width"], params["chair_depth"], params["obstacles"]):
-                initial_coords.append((x, y))
-                count += 1
+            all_potential_coords.append((x, y))
 
-    # --- 障害物下の椅子の間隔調整 ---
-    # 障害物がある場合、障害物の真下にあり、間隔が近すぎる椅子を追加で削除する
-    if not params['obstacles']:
-        final_coords = initial_coords
-    else:
-        coords_to_remove = set()
-        min_y_spacing = params['min_spacing_y'] # ユーザー指定の最低縦間隔
-        
+    # --- ステップ2: 障害物との衝突判定 ---
+    coords_after_collision_check = [
+        coord for coord in all_potential_coords 
+        if not is_colliding(coord[0], coord[1], params["chair_width"], params["chair_depth"], params["obstacles"])
+    ]
+    collision_skips = len(all_potential_coords) - len(coords_after_collision_check)
+
+    # --- ステップ3: 障害物下の間隔調整 ---
+    coords_to_remove = set()
+    spacing_skips = 0
+    if params['obstacles']:
+        min_y_spacing = params['min_spacing_y']
         for obs in params['obstacles']:
-            for coord in initial_coords:
+            for coord in coords_after_collision_check:
                 chair_x, chair_y = coord
                 chair_w = params['chair_width']
-                
-                is_below = False # 椅子が障害物の下にあるか
-                is_aligned_horizontally = False # 椅子が障害物の真下（水平範囲内）にあるか
-                gap = float('inf') # 障害物と椅子の垂直方向の隙間
+                is_below = False
+                is_aligned_horizontally = False
+                gap = float('inf')
 
-                # 障害物のタイプに応じて判定
                 if obs.get('type') == 'circle':
                     cx, cy, r = obs['x'], obs['y'], obs['radius']
                     is_below = chair_y >= (cy + r)
@@ -391,49 +373,65 @@ def calculate_chair_coordinates(params, layout_info):
                     if is_below and is_aligned_horizontally:
                         gap = chair_y - (cy + r)
                 else: # rectangle
-                    obs_x, obs_y = obs['x'], obs['y']
-                    obs_w, obs_d = obs['width'], obs['depth']
+                    obs_x, obs_y, obs_w, obs_d = obs['x'], obs['y'], obs['width'], obs['depth']
                     is_below = chair_y >= (obs_y + obs_d)
                     is_aligned_horizontally = (chair_x < obs_x + obs_w) and (chair_x + chair_w > obs_x)
                     if is_below and is_aligned_horizontally:
                         gap = chair_y - (obs_y + obs_d)
 
-                # 隙間が指定された最小間隔より狭い場合、その椅子を削除リストに追加
                 if gap < min_y_spacing:
                     coords_to_remove.add(coord)
+        
+        final_placeable_coords = [coord for coord in coords_after_collision_check if coord not in coords_to_remove]
+        spacing_skips = len(coords_to_remove)
+    else:
+        final_placeable_coords = coords_after_collision_check
 
-        # 削除リストに含まれていない椅子だけを最終的な座標リストとする
-        final_coords = [coord for coord in initial_coords if coord not in coords_to_remove]
+    # --- ステップ4: 最終結果の集計 ---
+    true_max_with_obstacles = len(final_placeable_coords)
 
+    # ユーザーの要求数に応じて、表示する座標を切り出す
+    num_chairs_to_draw = min(params["num_chairs"], true_max_with_obstacles)
+    coords_for_display = final_placeable_coords[:num_chairs_to_draw]
+    
     return {
-        "coords": final_coords, 
+        "coords_for_display": coords_for_display,
+        "total_displayed": len(coords_for_display),
+        "true_max": true_max_with_obstacles,
+        "collision_skips": collision_skips,
+        "spacing_skips": spacing_skips,
         "offset_x": offset_x,
         "offset_y": offset_y,
-        "total": len(final_coords),
-        "zigzag_offset": space_x / 2 if params["zigzag_layout"] else 0
+        "zigzag_offset": space_x / 2 if params["zigzag_layout"] else 0,
     }
 
 def create_json_response(params, layout_info, coords_data):
     """
-    計算結果をまとめて、クライアントに返すためのJSONレスポンスオブジェクトを生成します。
+    【アルゴリズム修正】
+    計算結果をまとめ、クライアントに返すためのJSONレスポンスオブジェクトを生成します。
+    'max'には障害物を考慮した後の真の最大数を設定します。
     """
     return jsonify({
         "hall_width": params["hall_width"],
         "hall_depth": params["hall_depth"],
         "chair_width": params["chair_width"],
         "chair_depth": params["chair_depth"],
-        "coords": coords_data["coords"],
+        "coords": coords_data.get("coords_for_display", []),
         "found": layout_info["found"],
         "cols": int(layout_info["cols"]),
         "rows": int(layout_info["rows"]),
         "spacing_x": layout_info["spacing_x"],
         "spacing_y": layout_info["spacing_y"],
-        "total": coords_data["total"],
-        "max": int(layout_info["max"]),
-        "offset_x": int(coords_data["offset_x"]),
-        "offset_y": int(coords_data["offset_y"]),
-        "zigzag_offset": coords_data["zigzag_offset"],
-        "obstacles": params.get("obstacles", [])
+        "total": coords_data.get("total_displayed", 0),
+        # 'max' には、障害物考慮後の「真の最大配置可能数」を設定
+        "max": coords_data.get("true_max", 0),
+        "offset_x": int(coords_data.get("offset_x", 0)),
+        "offset_y": int(coords_data.get("offset_y", 0)),
+        "zigzag_offset": coords_data.get("zigzag_offset", 0),
+        "obstacles": params.get("obstacles", []),
+        # デバッグや詳細情報用に、個別のスキップ数もレスポンスに含める
+        "collision_skips": coords_data.get("collision_skips", 0),
+        "spacing_skips": coords_data.get("spacing_skips", 0)
     })
 
 # --- Flask ルーティング ---
@@ -447,6 +445,7 @@ def index():
     return render_template("sf01.html")
 
 @app.route("/calculate", methods=["POST"])
+@limiter.limit("10 per minute") # エンドポイント個別のレートリミット
 def calculate():
     """
     "/calculate" エンドポイントへのPOSTリクエストを処理します。
@@ -464,21 +463,21 @@ def calculate():
         # 2. 入力データを検証
         params = parse_and_validate_input(data)
         
-        # 3. 最適なレイアウトを探索
+        # 3. 最適なレイアウト（格子）を探索
         best_layout, final_layout = find_optimal_layout(params)
 
         # レイアウトが見つからなかった場合は、空の結果を返す
         if not best_layout or not final_layout:
              return jsonify({"found": False, "max": 0, "coords": []})
 
-        # 4. 椅子の全座標を計算
+        # 4. 椅子の全座標を計算し、真の最大数を算出
         coords_data = calculate_chair_coordinates(params, final_layout)
         
         # 5. JSONレスポンスを作成
         response = create_json_response(params, final_layout, coords_data)
         
         # --- キャッシュ保存（現在無効）---
-        calculation_cache[cache_key] = response
+        # calculation_cache[cache_key] = response
         
         # 6. レスポンスをクライアントに返す
         return response
