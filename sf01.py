@@ -1,3 +1,4 @@
+#障害物を置くと最大配置可能数を減らすように
 from flask import Flask, request, jsonify, render_template, Response
 from flask_cors import CORS
 from flask_limiter import Limiter
