@@ -1,4 +1,8 @@
+<<<<<<< HEAD:sf02.py
 #スマホだと左右に分割しないように
+=======
+#障害物を置くと最大配置可能数を減らすように
+>>>>>>> 8d13ecbd18472bff33f6001a4b1686c7ef3b108d:sf01.py
 from flask import Flask, request, jsonify, render_template, Response
 from flask_cors import CORS
 from flask_limiter import Limiter
