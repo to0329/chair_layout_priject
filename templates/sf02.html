@@ -69,6 +69,19 @@
         padding-right: 0; 
         overflow-y: visible; /* パネル内のスクロールを無効化 */
       }
+      /* 入力フォームをスマホに最適化 */
+      .input-panel p {
+        display: flex;
+        flex-direction: column;
+      }
+      .input-panel input[type="text"],
+      .input-panel input[type="number"] {
+        width: 100%;
+        box-sizing: border-box; /* paddingを含めて幅100%にするための設定 */
+        margin-top: 4px;
+        padding: 8px; /* 入力欄を少し大きくしてタップしやすくする */
+        font-size: 16px; /* スマホでタップした時にズームされないようにする */
+      }
     }
 
     /* 折りたたみ可能な設定セクションのスタイル */
