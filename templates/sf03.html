@@ -452,19 +452,15 @@
             return;
         }
 
-        // 1脚も配置できなかった場合
+        // ▼▼▼【ここから修正】結果表示ロジックの変更 ▼▼▼
+
+        // 1脚も配置できなかった場合のメッセージは最初に処理
         if (!result.coords || result.coords.length === 0) {
           const strongText = document.createElement('span');
           strongText.className = 'highlight';
-          if (currentCalcMode === 'specific_grid' && !result.found) {
-            strongText.textContent = '指定された列・行数ではイスを配置できません！';
-            display.appendChild(strongText);
-            display.appendChild(document.createTextNode('\n会場やイスのサイズ、通路設定を見直してください。'));
-          } else {
-            strongText.textContent = 'イスを1脚も配置できません！';
-            display.appendChild(strongText);
-            display.appendChild(document.createTextNode('\n会場やイスのサイズを見直してください。'));
-          }
+          strongText.textContent = 'イスを1脚も配置できません！';
+          display.appendChild(strongText);
+          display.appendChild(document.createTextNode('\n会場やイスのサイズ、通路設定などを見直してください。'));
           return;
         }
   
@@ -472,12 +468,25 @@
         drawLayout(result);
   
         // --- 計算結果のテキスト表示 ---
-        if (result.found) { // 要求数を満たせた場合
+
+        // 【新機能】指定した行・列で配置できず、代替案が表示された場合のメッセージ
+        if (result.original_request_failed) {
+            const strongText = document.createElement('span');
+            strongText.className = 'highlight';
+            strongText.style.color = '#e67e22'; // 少し警告的な色
+            strongText.textContent = 'ご指定の列×行では配置できませんでした。';
+            display.appendChild(strongText);
+            display.appendChild(document.createTextNode('\n代わりに、現在の条件で配置可能な最大のレイアウトを表示します。\n\n'));
+        }
+
+        // 配置が成功したかどうかのメインメッセージ
+        if (result.found) { 
           const strongText = document.createElement('span');
           strongText.className = 'highlight';
           strongText.textContent = `配置完了！ ${result.total}脚のイスを配置しました。`;
           display.appendChild(strongText);
-          if (currentCalcMode === 'total') {
+          // 「総数を指定」モードで、かつ代替案でない場合のみ、希望数を満たした旨を表示
+          if (currentCalcMode === 'total' && !result.original_request_failed) {
             display.appendChild(document.createTextNode(`\n(ご希望の${data.num_chairs}脚を満たしています)`));
           }
         } else { // 要求数を満たせなかった場合
@@ -492,6 +501,7 @@
           display.appendChild(strongText2);
           display.appendChild(document.createTextNode('）のレイアウトを表示します。\n'));
         }
+        // ▲▲▲【ここまで修正】▲▲▲
   
         // 詳細なレイアウト情報を表示
         display.appendChild(document.createTextNode(`\n最大配置可能数： ${result.cols}列 × ${result.rows}行 = ${result.max}脚\n` + `壁からの距離：横${result.offset_x}cm 縦${result.offset_y}cm\n` + `間隔：横${result.spacing_x}cm 縦${result.spacing_y}cm`));

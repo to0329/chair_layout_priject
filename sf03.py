@@ -443,7 +443,7 @@ def calculate():
     try:
         data = request.get_json()
         
-        cache_key = json.dumps(data, sort_keys=True)
+        # cache_key = json.dumps(data, sort_keys=True)
         # if cache_key in calculation_cache:
         #     return calculation_cache[cache_key]
         
@@ -451,16 +451,30 @@ def calculate():
 
         calculation_mode = data.get("calculation_mode", "total")
 
+        # ▼▼▼【ここから修正】▼▼▼
         final_layout = {}
+        original_request_failed = False # 代替案を提示したかどうかのフラグ
+
         if calculation_mode == "specific_grid":
             specific_cols = int(data["specific_cols"])
             specific_rows = int(data["specific_rows"])
             final_layout = calculate_layout_for_specific_grid(params, specific_cols, specific_rows)
+            # もし指定された行・列で配置できなかったら...
+            if not final_layout.get("found"):
+                original_request_failed = True # フラグを立てる
+                # ...代わりに、配置可能な最大のレイアウトを探す
+                best_layout, _ = find_optimal_layout(params)
+                final_layout = best_layout
         else: # "total" モード
-            _, final_layout = find_optimal_layout(params)
+            best_layout, final_layout_by_num = find_optimal_layout(params)
+            # 要求数を満たせなかった場合は、最大配置のレイアウトを使う
+            if not final_layout_by_num.get("found"):
+                final_layout = best_layout
+            else:
+                final_layout = final_layout_by_num
+        # ▲▲▲【ここまで修正】▲▲▲
         
         # レイアウトが全く見つからなかった場合（best_layoutも空だった場合）のみ、処理を中断する。
-        # found:False の場合は、最大数でのレイアウト表示に進むため、ここでは中断しない。
         if not final_layout or "cols" not in final_layout:
              return jsonify({
                 "found": False, "max": 0, "coords": [],
@@ -470,8 +484,11 @@ def calculate():
         # 椅子の全座標を計算し、真の最大数を算出
         coords_data = calculate_chair_coordinates(params, final_layout)
         
-        # JSONレスポンスを作成
-        response = create_json_response(params, final_layout, coords_data)
+        # ▼▼▼【ここを修正】レスポンスに新しいフラグを追加 ▼▼▼
+        response_data = create_json_response(params, final_layout, coords_data).get_json()
+        response_data['original_request_failed'] = original_request_failed
+        response = jsonify(response_data)
+        # ▲▲▲【ここまで修正】▲▲▲
         
         # calculation_cache[cache_key] = response
         
