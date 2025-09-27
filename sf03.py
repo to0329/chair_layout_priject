@@ -68,21 +68,17 @@ def is_colliding(chair_x, chair_y, chair_width, chair_depth, obstacles):
         # 障害物のタイプによって衝突判定ロジックを分岐
         if obs.get('type') == 'circle':
             # 円と四角形の衝突判定
-            # 1. 円の中心に最も近い四角形（椅子）上の点(closest_x, closest_y)を見つける
             cx, cy, r = obs['x'], obs['y'], obs['radius']
             closest_x = max(chair_x, min(cx, chair_x + chair_width))
             closest_y = max(chair_y, min(cy, chair_y + chair_depth))
             
-            # 2. その最近接点と円の中心との距離を計算
             dist_x = cx - closest_x
             dist_y = cy - closest_y
             distance_squared = (dist_x * dist_x) + (dist_y * dist_y)
             
-            # 3. 距離が円の半径より小さければ衝突している
             if distance_squared < (r * r):
                 collides = True
         else: # デフォルトは四角形として扱う
-            # 四角形同士の衝突判定 (AABB: Axis-Aligned Bounding Box)
             if (chair_x < obs['x'] + obs['width'] and
                 chair_x + chair_width > obs['x'] and
                 chair_y < obs['y'] + obs['depth'] and
@@ -90,25 +86,14 @@ def is_colliding(chair_x, chair_y, chair_width, chair_depth, obstacles):
                 collides = True
         
         if collides:
-            return True # 一つでも衝突があれば、即座にTrueを返す
-    return False # どの障害物とも衝突しなかった
+            return True
+    return False
 
 def parse_and_validate_input(data):
     """
     クライアントから受け取ったJSONデータを解析し、型変換や必須項目の検証（バリデーション）を行います。
-    不正なデータや不足しているデータがあればエラーを送出します。
-
-    Args:
-        data (dict): リクエストから受け取ったJSONデータ
-
-    Raises:
-        ValueError: データに不備がある場合
-
-    Returns:
-        dict: 検証および型変換済みのパラメータ辞書
     """
     try:
-        # 入力データを辞書として整理し、数値型に変換
         params = {
             "hall_width": float(data["hall_width"]),
             "hall_depth": float(data["hall_depth"]),
@@ -128,13 +113,11 @@ def parse_and_validate_input(data):
             "obstacles": data.get("obstacles", [])
         }
 
-        # 障害物データのバリデーション
         for obs in params["obstacles"]:
             obs_type = obs.get('type')
             if not obs_type or not all(k in obs for k in ['x', 'y']):
                 raise ValueError("障害物の基本データ(type, x, y)が不足しています。")
             
-            # 形状に応じて必要なキー（幅/奥行 or 半径）が存在するかチェック
             if obs_type == 'rectangle':
                 if not all(k in obs for k in ['width', 'depth']):
                     raise ValueError("四角形障害物のデータ(width, depth)が不足しています。")
@@ -146,39 +129,25 @@ def parse_and_validate_input(data):
 
         return params
     except (KeyError, TypeError, ValueError) as e:
-        # データに問題があった場合、エラー内容を付けてValueErrorを送出
         raise ValueError(str(e))
 
 def find_optimal_layout(params):
     """
     最適な椅子配置（列数、行数、間隔）を見つけ出すためのメインロジックです。
-    椅子の間隔を少しずつ広げながら、指定された数の椅子を配置できるかを試行します。
-
-    Args:
-        params (dict): 検証済みの入力パラメータ
-
-    Returns:
-        tuple: (best_layout, final_layout)
-               best_layout: 最も多くの椅子を配置できるレイアウト情報
-               final_layout: 要求された椅子数を満たすか、それが無理ならbest_layout
     """
-    found = False # 要求された椅子数を配置できたかどうかのフラグ
-    best_max_chairs = 0 # これまでに見つかった最大の配置可能数
-    best_layout = {}    # best_max_chairsを達成したレイアウト
-    final_layout = {}   # 最終的にクライアントに返すレイアウト
+    found = False
+    best_max_chairs = 0
+    best_layout = {}
+    final_layout = {}
 
-    # 椅子の横方向の間隔(spacing_x)と縦方向の間隔(spacing_y)を総当たりで探索
     for spacing_x in range(params["min_spacing_x"], MAX_SPACING_SEARCH_CM + 1, SPACING_SEARCH_STEP_CM):
         for spacing_y in range(params["min_spacing_y"], MAX_SPACING_SEARCH_CM + 1, SPACING_SEARCH_STEP_CM):
-            # 椅子1脚が占めるスペースを計算
             space_x = params["chair_width"] + spacing_x
             space_y = params["chair_depth"] + spacing_y
             if space_x == 0 or space_y == 0: continue
 
-            # ジグザグ配置の場合、実質的に必要な幅が増える
             additional_width = space_x / 2 if params["zigzag_layout"] else 0
             
-            # 通路などを考慮した、椅子を配置できる有効なエリアの寸法を計算
             effective_hall_width = params["hall_width"]
             if params["add_side_aisles"]:
                 effective_hall_width -= AISLE_WIDTH_CM * 2
@@ -187,52 +156,42 @@ def find_optimal_layout(params):
             effective_hall_depth = params["hall_depth"] - params["front_aisle_width"]
             if effective_hall_depth <= 0: continue
 
-            # この間隔で最大何列・何行配置できるか計算
             max_cols, max_rows = _calculate_max_rows_cols(params, effective_hall_width, effective_hall_depth, space_x, space_y, additional_width)
             current_max = max_cols * max_rows
 
-            # これまでの最大配置数を超えたら、ベストなレイアウトとして更新
             if current_max > best_max_chairs:
                 best_max_chairs = current_max
                 best_layout = {"cols": max_cols, "rows": max_rows, "spacing_x": spacing_x, "spacing_y": spacing_y, "max": current_max}
 
-            # まだ条件を満たす解が見つかっていない、かつ、現在の配置数が要求数以上なら、
-            # これを最終的な解として採用し、探索フラグを立てる
             if not found and current_max >= params["num_chairs"]:
                 found = True
                 final_layout = {"cols": max_cols, "rows": max_rows, "spacing_x": spacing_x, "spacing_y": spacing_y, "max": current_max, "found": True}
     
-    # ループがすべて終わっても要求数を満たす解が見つからなかった場合、
-    # 最も多く配置できたbest_layoutを最終結果とする
     if not final_layout:
         final_layout = best_layout
-        final_layout["found"] = False
+        if "max" in final_layout: # best_layoutが見つかっていれば
+             final_layout["found"] = False
 
     return best_layout, final_layout
 
 def _calculate_max_rows_cols(params, effective_hall_width, effective_hall_depth, space_x, space_y, additional_width):
     """
     【ヘルパー関数】与えられた条件下で配置可能な最大の列数と行数を計算します。
-    通路のモード（every_n, fixed_number, none）に応じて計算方法が変わります。
     """
     max_cols, max_rows = 0, 0
     aisle_mode = params["aisle_mode"]
 
-    # --- 通路モードに応じた計算分岐 ---
-    if aisle_mode == 'every_n': # N脚おきに通路を設置するモード
-        # 横方向（列）の計算
+    if aisle_mode == 'every_n':
         aisle_every_x = params["aisle_every_x"]
         if aisle_every_x > 0:
-            # 椅子N脚＋通路1本を1ブロックとして、会場に何ブロック入るか計算
             block_width = aisle_every_x * space_x + AISLE_WIDTH_CM
             num_blocks = math.floor(effective_hall_width / block_width) if block_width > 0 else 0
             remaining_width = effective_hall_width - num_blocks * block_width
             extra_cols = math.floor(remaining_width / space_x) if space_x > 0 else 0
             max_cols = num_blocks * aisle_every_x + extra_cols
-        else: # 通路間隔が0なら通路なしと同じ
+        else:
             max_cols = math.floor(effective_hall_width / space_x) if space_x > 0 else 0
         
-        # 縦方向（行）の計算も同様
         aisle_every_y = params["aisle_every_y"]
         if aisle_every_y > 0:
             block_depth = aisle_every_y * space_y + AISLE_WIDTH_CM
@@ -243,10 +202,9 @@ def _calculate_max_rows_cols(params, effective_hall_width, effective_hall_depth,
         else:
             max_rows = math.floor(effective_hall_depth / space_y) if space_y > 0 else 0
 
-    elif aisle_mode == 'fixed_number': # 指定本数の通路を均等に配置するモード
+    elif aisle_mode == 'fixed_number':
         num_aisles_x = params["num_aisles_x"]
         num_aisles_y = params["num_aisles_y"]
-        # 全体の幅から通路の総幅を引いたエリアに椅子を配置
         chair_area_width = effective_hall_width - num_aisles_x * AISLE_WIDTH_CM
         chair_area_depth = effective_hall_depth - num_aisles_y * AISLE_WIDTH_CM
         if chair_area_width > 0 and chair_area_depth > 0:
@@ -256,7 +214,7 @@ def _calculate_max_rows_cols(params, effective_hall_width, effective_hall_depth,
         else:
             max_cols, max_rows = 0, 0
 
-    else: # 通路なしモード
+    else:
         available_width = effective_hall_width - additional_width
         max_cols = math.floor((available_width + (space_x - params["chair_width"])) / space_x) if space_x > 0 else 0
         max_rows = math.floor((effective_hall_depth + (space_y - params["chair_depth"])) / space_y) if space_y > 0 else 0
@@ -265,8 +223,7 @@ def _calculate_max_rows_cols(params, effective_hall_width, effective_hall_depth,
 
 def _calculate_total_layout_size(params, layout_info, space_x, space_y, additional_width):
     """
-    【ヘルパー関数】椅子と通路を含めたレイアウト全体の最終的な幅と奥行きを計算します。
-    これはレイアウトを会場の中央に配置するために使われます。
+    【ヘルパー関数】レイアウト全体の最終的な幅と奥行きを計算します。
     """
     layout_cols, layout_rows = layout_info["cols"], layout_info["rows"]
     aisle_mode = params["aisle_mode"]
@@ -284,7 +241,7 @@ def _calculate_total_layout_size(params, layout_info, space_x, space_y, addition
         num_aisles_y = params["num_aisles_y"]
         total_layout_width = layout_cols * space_x - layout_info["spacing_x"] + num_aisles_x * AISLE_WIDTH_CM + additional_width
         total_layout_depth = layout_rows * space_y - layout_info["spacing_y"] + num_aisles_y * AISLE_WIDTH_CM
-    else: # 通路なし
+    else:
         total_layout_width = layout_cols * space_x - layout_info["spacing_x"] + additional_width
         total_layout_depth = layout_rows * space_y - layout_info["spacing_y"]
     
@@ -292,18 +249,15 @@ def _calculate_total_layout_size(params, layout_info, space_x, space_y, addition
 
 def _get_chair_position(params, layout_info, offset_x, offset_y, space_x, space_y, row, col, zigzag_offset_x):
     """
-    【ヘルパー関数】指定された行(row)と列(col)の椅子の左上の座標(x, y)を計算します。
-    通路やジグザグ配置によるオフセットもここで考慮されます。
+    【ヘルパー関数】指定された行と列の椅子の座標を計算します。
     """
     x, y = 0, 0
     aisle_mode = params["aisle_mode"]
     if aisle_mode == 'every_n':
         aisle_every_x = params["aisle_every_x"]
         aisle_every_y = params["aisle_every_y"]
-        # この椅子より前にある通路の数を計算
         num_preceding_aisles_x = col // aisle_every_x if aisle_every_x > 0 else 0
         num_preceding_aisles_y = row // aisle_every_y if aisle_every_y > 0 else 0
-        # 通路分のオフセットを追加
         aisle_offset_x = num_preceding_aisles_x * AISLE_WIDTH_CM
         aisle_offset_y = num_preceding_aisles_y * AISLE_WIDTH_CM
         x = offset_x + col * space_x + aisle_offset_x + zigzag_offset_x
@@ -311,26 +265,21 @@ def _get_chair_position(params, layout_info, offset_x, offset_y, space_x, space_
     elif aisle_mode == 'fixed_number':
         num_aisles_x = params["num_aisles_x"]
         num_aisles_y = params["num_aisles_y"]
-        # 1つの椅子ブロックに何列・何行含まれるかを計算
         cols_per_block = layout_info["cols"] / (num_aisles_x + 1) if num_aisles_x > -1 else layout_info["cols"]
         rows_per_block = layout_info["rows"] / (num_aisles_y + 1) if num_aisles_y > -1 else layout_info["rows"]
-        # この椅子より前にある通路の数を計算
         num_preceding_aisles_x = math.floor(col / cols_per_block) if cols_per_block > 0 else 0
         num_preceding_aisles_y = math.floor(row / rows_per_block) if rows_per_block > 0 else 0
         x = offset_x + col * space_x + num_preceding_aisles_x * AISLE_WIDTH_CM + zigzag_offset_x
         y = offset_y + row * space_y + num_preceding_aisles_y * AISLE_WIDTH_CM
-    else: # 通路なし
+    else:
         x = offset_x + col * space_x + zigzag_offset_x
         y = offset_y + row * space_y
     return x, y
 
 def calculate_chair_coordinates(params, layout_info):
     """
-    【アルゴリズム修正】
-    最終レイアウトに基づき、まず配置可能な全ての椅子の座標を計算し、
-    そこから障害物を考慮した「真の最大配置可能数」を求めます。
+    最終レイアウトに基づき、椅子の座標を計算し、障害物を考慮した結果を返します。
     """
-    # --- ステップ1: グリッド上の全候補座標を生成 ---
     layout_cols, layout_rows = layout_info["cols"], layout_info["rows"]
     space_x = params["chair_width"] + layout_info["spacing_x"]
     space_y = params["chair_depth"] + layout_info["spacing_y"]
@@ -347,14 +296,12 @@ def calculate_chair_coordinates(params, layout_info):
             x, y = _get_chair_position(params, layout_info, offset_x, offset_y, space_x, space_y, row, col, zigzag_offset_x)
             all_potential_coords.append((x, y))
 
-    # --- ステップ2: 障害物との衝突判定 ---
     coords_after_collision_check = [
         coord for coord in all_potential_coords 
         if not is_colliding(coord[0], coord[1], params["chair_width"], params["chair_depth"], params["obstacles"])
     ]
     collision_skips = len(all_potential_coords) - len(coords_after_collision_check)
 
-    # --- ステップ3: 障害物下の間隔調整 ---
     coords_to_remove = set()
     spacing_skips = 0
     if params['obstacles']:
@@ -388,10 +335,7 @@ def calculate_chair_coordinates(params, layout_info):
     else:
         final_placeable_coords = coords_after_collision_check
 
-    # --- ステップ4: 最終結果の集計 ---
     true_max_with_obstacles = len(final_placeable_coords)
-
-    # ユーザーの要求数に応じて、表示する座標を切り出す
     num_chairs_to_draw = min(params["num_chairs"], true_max_with_obstacles)
     coords_for_display = final_placeable_coords[:num_chairs_to_draw]
     
@@ -408,9 +352,7 @@ def calculate_chair_coordinates(params, layout_info):
 
 def create_json_response(params, layout_info, coords_data):
     """
-    【アルゴリズム修正】
     計算結果をまとめ、クライアントに返すためのJSONレスポンスオブジェクトを生成します。
-    'max'には障害物を考慮した後の真の最大数を設定します。
     """
     return jsonify({
         "hall_width": params["hall_width"],
@@ -418,43 +360,35 @@ def create_json_response(params, layout_info, coords_data):
         "chair_width": params["chair_width"],
         "chair_depth": params["chair_depth"],
         "coords": coords_data.get("coords_for_display", []),
-        "found": layout_info["found"],
-        "cols": int(layout_info["cols"]) if "cols" in layout_info else 0,
-        "rows": int(layout_info["rows"]) if "rows" in layout_info else 0,
-        "spacing_x": layout_info["spacing_x"] if "spacing_x" in layout_info else 0,
-        "spacing_y": layout_info["spacing_y"] if "spacing_y" in layout_info else 0,
+        "found": layout_info.get("found", False),
+        "cols": int(layout_info.get("cols", 0)),
+        "rows": int(layout_info.get("rows", 0)),
+        "spacing_x": layout_info.get("spacing_x", 0),
+        "spacing_y": layout_info.get("spacing_y", 0),
         "total": coords_data.get("total_displayed", 0),
-        # 'max' には、障害物考慮後の「真の最大配置可能数」を設定
         "max": coords_data.get("true_max", 0),
         "offset_x": int(coords_data.get("offset_x", 0)),
         "offset_y": int(coords_data.get("offset_y", 0)),
         "zigzag_offset": coords_data.get("zigzag_offset", 0),
         "obstacles": params.get("obstacles", []),
-        # デバッグや詳細情報用に、個別のスキップ数もレスポンスに含める
         "collision_skips": coords_data.get("collision_skips", 0),
         "spacing_skips": coords_data.get("spacing_skips", 0)
     })
 
-# ▼▼▼【追加】「列×行」指定モード用の計算関数 ▼▼▼
 def calculate_layout_for_specific_grid(params, specific_cols, specific_rows):
     """
     指定された列数・行数でレイアウトを計算し、配置可能かどうかを返す。
     """
-    # 椅子自体の合計サイズを計算
     total_chair_width = params["chair_width"] * specific_cols
     total_chair_depth = params["chair_depth"] * specific_rows
 
-    # ジグザグ配置による追加幅
-    # このモードでは、椅子と間隔の合計(space_x)が不明なので、一旦椅子の幅の半分で仮定
     additional_width = (params["chair_width"] / 2) if params["zigzag_layout"] else 0
 
-    # 通路などを考慮した有効な会場エリアを計算
     effective_hall_width = params["hall_width"]
     if params["add_side_aisles"]:
         effective_hall_width -= AISLE_WIDTH_CM * 2
     effective_hall_depth = params["hall_depth"] - params["front_aisle_width"]
 
-    # 通路の総幅を計算（aisle_modeに応じて）
     num_aisles_x, num_aisles_y = 0, 0
     if params["aisle_mode"] == 'every_n':
         aisle_every_x = params.get("aisle_every_x", LARGE_DEFAULT_AISLE_INTERVAL)
@@ -468,21 +402,15 @@ def calculate_layout_for_specific_grid(params, specific_cols, specific_rows):
     total_aisle_width = num_aisles_x * AISLE_WIDTH_CM
     total_aisle_depth = num_aisles_y * AISLE_WIDTH_CM
 
-    # 椅子と通路を引いて、間隔に使える残りのスペースを計算
     remaining_spacing_width = effective_hall_width - total_chair_width - total_aisle_width - additional_width
     remaining_spacing_depth = effective_hall_depth - total_chair_depth - total_aisle_depth
     
-    # 1つあたりの間隔を計算
-    # 間隔の数は (椅子の数 - 1)
     spacing_x = remaining_spacing_width / (specific_cols - 1) if specific_cols > 1 else MAX_SPACING_SEARCH_CM
     spacing_y = remaining_spacing_depth / (specific_rows - 1) if specific_rows > 1 else MAX_SPACING_SEARCH_CM
 
-    # 配置可能かどうかの判定
-    # 残りのスペースが0以上、かつ、計算された間隔が最低間隔以上なら配置可能
     if (remaining_spacing_width >= 0 and remaining_spacing_depth >= 0 and
         spacing_x >= params["min_spacing_x"] and spacing_y >= params["min_spacing_y"]):
         
-        # ジグザグの場合、spacing_xから追加幅を再計算
         if params["zigzag_layout"]:
             space_x_total = params["chair_width"] + spacing_x
             additional_width_final = space_x_total / 2
@@ -492,56 +420,51 @@ def calculate_layout_for_specific_grid(params, specific_cols, specific_rows):
         return {
             "cols": specific_cols,
             "rows": specific_rows,
-            "spacing_x": math.floor(spacing_x), # 小数点以下は切り捨て
+            "spacing_x": math.floor(spacing_x),
             "spacing_y": math.floor(spacing_y),
             "max": specific_cols * specific_rows,
             "found": True
         }
     else:
-        # 配置不可能な場合は、found: False を返す
         return { "found": False, "max": 0, "cols": specific_cols, "rows": specific_rows }
 
 
 # --- Flask ルーティング ---
-# URLと実行する関数を紐付けます。
-
 @app.route("/")
 def index():
-    """
-    ルートURL ("/") にアクセスがあった場合に、メインのHTMLページを返します。
-    """
     return render_template("sf03.html")
 
 @app.route("/calculate", methods=["POST"])
-@limiter.limit("10 per minute") # エンドポイント個別のレートリミット
+@limiter.limit("10 per minute")
 def calculate():
     """
     "/calculate" エンドポイントへのPOSTリクエストを処理します。
-    これが椅子配置計算のメインAPIです。
     """
     try:
         data = request.get_json()
+        
+        cache_key = json.dumps(data, sort_keys=True)
+        # if cache_key in calculation_cache:
+        #     return calculation_cache[cache_key]
+        
         params = parse_and_validate_input(data)
 
-        # ▼▼▼【修正】計算モードに応じて処理を分岐 ▼▼▼
         calculation_mode = data.get("calculation_mode", "total")
 
         final_layout = {}
         if calculation_mode == "specific_grid":
-            # 新しい「列数×行数」指定モードの処理
             specific_cols = int(data["specific_cols"])
             specific_rows = int(data["specific_rows"])
             final_layout = calculate_layout_for_specific_grid(params, specific_cols, specific_rows)
         else: # "total" モード
-            # 既存の最適レイアウト探索処理
             _, final_layout = find_optimal_layout(params)
         
-        # レイアウトが見つからなかった場合や、配置不可(found:False)の場合
-        if not final_layout or not final_layout.get("found"):
-             # 配置不可の場合でも、列・行などの情報を返すために final_layout を使う
+        # レイアウトが全く見つからなかった場合（best_layoutも空だった場合）のみ、処理を中断する。
+        # found:False の場合は、最大数でのレイアウト表示に進むため、ここでは中断しない。
+        if not final_layout or "cols" not in final_layout:
              return jsonify({
                 "found": False, "max": 0, "coords": [],
-                "cols": final_layout.get("cols", 0), "rows": final_layout.get("rows", 0)
+                "cols": 0, "rows": 0
             })
 
         # 椅子の全座標を計算し、真の最大数を算出
@@ -550,18 +473,17 @@ def calculate():
         # JSONレスポンスを作成
         response = create_json_response(params, final_layout, coords_data)
         
+        # calculation_cache[cache_key] = response
+        
         return response
 
     except ValueError as e:
-        # 入力データに問題があった場合 (400 Bad Request)
         return jsonify({"error": f"入力内容が不正です: {e}"}), 400
     except Exception as e:
-        # 予期しないサーバー内部のエラーが発生した場合 (500 Internal Server Error)
         print(f"An unexpected error occurred: {e}")
         return jsonify({"error": "サーバー内部で予期しないエラーが発生しました。"}), 500
 
 # --- アプリケーションの実行 ---
 if __name__ == "__main__":
-    # 環境変数 FLASK_DEBUG が '1' に設定されている場合、デバッグモードで実行
     debug_mode = os.environ.get("FLASK_DEBUG") == '1'
     app.run(debug=debug_mode)
