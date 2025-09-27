@@ -375,20 +375,19 @@ def create_json_response(params, layout_info, coords_data):
         "spacing_skips": coords_data.get("spacing_skips", 0)
     })
 
+# ▼▼▼【ここを丸ごと置き換え】▼▼▼
 def calculate_layout_for_specific_grid(params, specific_cols, specific_rows):
     """
-    指定された列数・行数でレイアウトを計算し、配置可能かどうかを返す。
+    指定された列数・行数が収まる最大のイス間隔を見つけ出し、レイアウトを返す。
+    これにより、レイアウトブロック全体が中央揃えになり、壁との隙間が生まれる。
     """
-    total_chair_width = params["chair_width"] * specific_cols
-    total_chair_depth = params["chair_depth"] * specific_rows
-
-    additional_width = (params["chair_width"] / 2) if params["zigzag_layout"] else 0
-
+    # 会場の有効な寸法を計算
     effective_hall_width = params["hall_width"]
     if params["add_side_aisles"]:
         effective_hall_width -= AISLE_WIDTH_CM * 2
     effective_hall_depth = params["hall_depth"] - params["front_aisle_width"]
 
+    # 通路の本数と幅を計算
     num_aisles_x, num_aisles_y = 0, 0
     if params["aisle_mode"] == 'every_n':
         aisle_every_x = params.get("aisle_every_x", LARGE_DEFAULT_AISLE_INTERVAL)
@@ -402,31 +401,46 @@ def calculate_layout_for_specific_grid(params, specific_cols, specific_rows):
     total_aisle_width = num_aisles_x * AISLE_WIDTH_CM
     total_aisle_depth = num_aisles_y * AISLE_WIDTH_CM
 
-    remaining_spacing_width = effective_hall_width - total_chair_width - total_aisle_width - additional_width
-    remaining_spacing_depth = effective_hall_depth - total_chair_depth - total_aisle_depth
-    
-    spacing_x = remaining_spacing_width / (specific_cols - 1) if specific_cols > 1 else MAX_SPACING_SEARCH_CM
-    spacing_y = remaining_spacing_depth / (specific_rows - 1) if specific_rows > 1 else MAX_SPACING_SEARCH_CM
+    # --- ここからが新しい計算ロジック ---
+    best_spacing_x = -1
+    best_spacing_y = -1
 
-    if (remaining_spacing_width >= 0 and remaining_spacing_depth >= 0 and
-        spacing_x >= params["min_spacing_x"] and spacing_y >= params["min_spacing_y"]):
+    # 1. まず、指定された行が収まる最大の「縦」間隔を探す
+    #    (広い方から試し、最初に見つかったものが最適解)
+    for spacing_y in range(MAX_SPACING_SEARCH_CM, params["min_spacing_y"] - 1, -SPACING_SEARCH_STEP_CM):
+        space_y = params["chair_depth"] + spacing_y
+        # 必要な全体の奥行きを計算
+        required_depth = (specific_rows * params["chair_depth"]) + ((specific_rows - 1) * spacing_y) + total_aisle_depth
         
-        if params["zigzag_layout"]:
-            space_x_total = params["chair_width"] + spacing_x
-            additional_width_final = space_x_total / 2
-            remaining_spacing_width = effective_hall_width - total_chair_width - total_aisle_width - additional_width_final
-            spacing_x = remaining_spacing_width / (specific_cols - 1) if specific_cols > 1 else MAX_SPACING_SEARCH_CM
+        if required_depth <= effective_hall_depth:
+            best_spacing_y = spacing_y
+            break # 最適な縦間隔が見つかった
 
+    # 2. 次に、指定された列が収まる最大の「横」間隔を探す
+    for spacing_x in range(MAX_SPACING_SEARCH_CM, params["min_spacing_x"] - 1, -SPACING_SEARCH_STEP_CM):
+        space_x = params["chair_width"] + spacing_x
+        zigzag_offset = space_x / 2 if params["zigzag_layout"] else 0
+        # 必要な全体の幅を計算
+        required_width = (specific_cols * params["chair_width"]) + ((specific_cols - 1) * spacing_x) + total_aisle_width + zigzag_offset
+        
+        if required_width <= effective_hall_width:
+            best_spacing_x = spacing_x
+            break # 最適な横間隔が見つかった
+
+    # 3. 縦と横の両方で最適な間隔が見つかった場合、そのレイアウトを返す
+    if best_spacing_x != -1 and best_spacing_y != -1:
         return {
             "cols": specific_cols,
             "rows": specific_rows,
-            "spacing_x": math.floor(spacing_x),
-            "spacing_y": math.floor(spacing_y),
+            "spacing_x": best_spacing_x,
+            "spacing_y": best_spacing_y,
             "max": specific_cols * specific_rows,
             "found": True
         }
     else:
+        # 最低間隔でも収まらない場合は、配置不可として返す
         return { "found": False, "max": 0, "cols": specific_cols, "rows": specific_rows }
+# ▲▲▲【ここまで置き換え】▲▲▲
 
 
 # --- Flask ルーティング ---
@@ -451,7 +465,6 @@ def calculate():
 
         calculation_mode = data.get("calculation_mode", "total")
 
-        # ▼▼▼【ここから修正】▼▼▼
         final_layout = {}
         original_request_failed = False # 代替案を提示したかどうかのフラグ
 
@@ -472,7 +485,6 @@ def calculate():
                 final_layout = best_layout
             else:
                 final_layout = final_layout_by_num
-        # ▲▲▲【ここまで修正】▲▲▲
         
         # レイアウトが全く見つからなかった場合（best_layoutも空だった場合）のみ、処理を中断する。
         if not final_layout or "cols" not in final_layout:
@@ -484,11 +496,9 @@ def calculate():
         # 椅子の全座標を計算し、真の最大数を算出
         coords_data = calculate_chair_coordinates(params, final_layout)
         
-        # ▼▼▼【ここを修正】レスポンスに新しいフラグを追加 ▼▼▼
         response_data = create_json_response(params, final_layout, coords_data).get_json()
         response_data['original_request_failed'] = original_request_failed
         response = jsonify(response_data)
-        # ▲▲▲【ここまで修正】▲▲▲
         
         # calculation_cache[cache_key] = response
         

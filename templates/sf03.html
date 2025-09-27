@@ -452,8 +452,6 @@
             return;
         }
 
-        // ▼▼▼【ここから修正】結果表示ロジックの変更 ▼▼▼
-
         // 1脚も配置できなかった場合のメッセージは最初に処理
         if (!result.coords || result.coords.length === 0) {
           const strongText = document.createElement('span');
@@ -501,7 +499,6 @@
           display.appendChild(strongText2);
           display.appendChild(document.createTextNode('）のレイアウトを表示します。\n'));
         }
-        // ▲▲▲【ここまで修正】▲▲▲
   
         // 詳細なレイアウト情報を表示
         display.appendChild(document.createTextNode(`\n最大配置可能数： ${result.cols}列 × ${result.rows}行 = ${result.max}脚\n` + `壁からの距離：横${result.offset_x}cm 縦${result.offset_y}cm\n` + `間隔：横${result.spacing_x}cm 縦${result.spacing_y}cm`));
