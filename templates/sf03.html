@@ -139,8 +139,7 @@
     <div class="input-panel">
       <h1>イス配置シミュレータ</h1>
       <p>
-        <strong>イベント会場のイス配置でお悩みですか？</strong><br>
-        このツールは、会場とイスのサイズ、イスの数を入力するとレイアウトを画像として出力します。
+        <strong>イベント会場のイス配置でお悩みですか？</strong>このツールは、会場とイスのサイズ、イスの数を入力するとレイアウトを画像として出力します。
       </p>
 
       <h3>入力<span style="color: red; font-size: 70%;">（必須）</span></h3>
@@ -501,7 +500,7 @@
         }
   
         // 詳細なレイアウト情報を表示
-        display.appendChild(document.createTextNode(`\n最大配置可能数： ${result.cols}列 × ${result.rows}行 = ${result.max}脚\n` + `壁からの距離：横${result.offset_x}cm 縦${result.offset_y}cm\n` + `間隔：横${result.spacing_x}cm 縦${result.spacing_y}cm`));
+        display.appendChild(document.createTextNode(`\nこの会場の最大配置可能数： ${result.cols}列 × ${result.rows}行 = ${result.max}脚\n` + `壁からの距離：横${result.offset_x}cm 縦${result.offset_y}cm\n` + `間隔：横${result.spacing_x}cm 縦${result.spacing_y}cm`));
         if (document.getElementById("zigzag_layout").checked && result.zigzag_offset > 0) {
           display.appendChild(document.createTextNode(`\nジグザグのズレ：${result.zigzag_offset.toFixed(1)}cm`));
         }

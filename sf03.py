@@ -1,4 +1,5 @@
-#
+#〇×〇機能の追加
+#〇×〇機能の左右に隙間
 from flask import Flask, request, jsonify, render_template, Response
 from flask_cors import CORS
 from flask_limiter import Limiter
