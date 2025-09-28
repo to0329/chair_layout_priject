@@ -466,15 +466,8 @@
   
         // --- 計算結果のテキスト表示 ---
 
-        // 【新機能】指定した行・列で配置できず、代替案が表示された場合のメッセージ
-        if (result.original_request_failed) {
-            const strongText = document.createElement('span');
-            strongText.className = 'highlight';
-            strongText.style.color = '#e67e22'; // 少し警告的な色
-            strongText.textContent = 'ご指定の列×行では配置できませんでした。';
-            display.appendChild(strongText);
-            display.appendChild(document.createTextNode('\n代わりに、現在の条件で配置可能な最大のレイアウトを表示します。\n\n'));
-        }
+        // ▼▼▼【ここから変更】▼▼▼
+        // 「ご指定の列×行では配置できませんでした...」というメッセージブロックは削除しました。
 
         // 配置が成功したかどうかのメインメッセージ
         if (result.found) { 
@@ -487,17 +480,21 @@
             display.appendChild(document.createTextNode(`\n(ご希望の${data.num_chairs}脚を満たしています)`));
           }
         } else { // 要求数を満たせなかった場合
-          const strongText1 = document.createElement('span');
-          strongText1.className = 'highlight';
-          strongText1.textContent = 'ご希望の数を配置できませんでした。';
-          display.appendChild(strongText1);
-          display.appendChild(document.createTextNode('\n現在の入力で配置できる最大数（'));
-          const strongText2 = document.createElement('span');
-          strongText2.className = 'highlight';
-          strongText2.textContent = `${result.total}脚`;
-          display.appendChild(strongText2);
-          display.appendChild(document.createTextNode('）のレイアウトを表示します。\n'));
+          // 「総数を指定」モードの場合のみ、「ご希望の数を配置できませんでした」というメッセージを表示します。
+          if (currentCalcMode === 'total') {
+            const strongText1 = document.createElement('span');
+            strongText1.className = 'highlight';
+            strongText1.textContent = 'ご希望の数を配置できませんでした。';
+            display.appendChild(strongText1);
+            display.appendChild(document.createTextNode('\n現在の入力で配置できる最大数（'));
+            const strongText2 = document.createElement('span');
+            strongText2.className = 'highlight';
+            strongText2.textContent = `${result.total}脚`;
+            display.appendChild(strongText2);
+            display.appendChild(document.createTextNode('）のレイアウトを表示します。\n'));
+          }
         }
+        // ▲▲▲【ここまで変更】▲▲▲
   
         // 詳細なレイアウト情報を表示
         display.appendChild(document.createTextNode(`\nこの会場の最大配置可能数： ${result.cols}列 × ${result.rows}行 = ${result.max}脚\n` + `壁からの距離：横${result.offset_x}cm 縦${result.offset_y}cm\n` + `間隔：横${result.spacing_x}cm 縦${result.spacing_y}cm`));
