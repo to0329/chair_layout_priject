@@ -462,7 +462,7 @@ def calculate_layout_for_specific_grid(params, specific_cols, specific_rows):
 # --- Flask ルーティング ---
 @app.route("/")
 def index():
-    return render_template("sf04.html")
+    return render_template("sf05_01.html")
 
 @app.route("/calculate", methods=["POST"])
 @limiter.limit("10 per minute")
