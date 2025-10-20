@@ -115,14 +115,23 @@ def parse_and_validate_input(data):
         }
 
         for obs in params["obstacles"]:
+            # D&D操作により座標がfloatになっている可能性があるため、floatで受け取る
+            obs['x'] = float(obs.get('x'))
+            obs['y'] = float(obs.get('y'))
+            
             obs_type = obs.get('type')
             if not obs_type or not all(k in obs for k in ['x', 'y']):
                 raise ValueError("障害物の基本データ(type, x, y)が不足しています。")
             
             if obs_type == 'rectangle':
+                # サイズはintのまま
+                obs['width'] = int(obs.get('width'))
+                obs['depth'] = int(obs.get('depth'))
                 if not all(k in obs for k in ['width', 'depth']):
                     raise ValueError("四角形障害物のデータ(width, depth)が不足しています。")
             elif obs_type == 'circle':
+                # 半径はintのまま
+                obs['radius'] = int(obs.get('radius'))
                 if 'radius' not in obs:
                     raise ValueError("円形障害物のデータ(radius)が不足しています。")
             else:
@@ -288,6 +297,11 @@ def calculate_chair_coordinates(params, layout_info):
     
     total_layout_width, total_layout_depth = _calculate_total_layout_size(params, layout_info, space_x, space_y, additional_width)
     offset_x = (params["hall_width"] - total_layout_width) / 2
+    
+    # 左右の通路を考慮した offset_x の調整
+    if params["add_side_aisles"]:
+        offset_x = AISLE_WIDTH_CM
+    
     offset_y = params["front_aisle_width"]
     
     all_potential_coords = []
@@ -305,6 +319,7 @@ def calculate_chair_coordinates(params, layout_info):
 
     coords_to_remove = set()
     spacing_skips = 0
+    # 障害物の下の椅子の間隔チェック (会場の構造上、障害物の上もチェックすべきだが、ここでは「最低限の間隔」として縦方向のみチェック)
     if params['obstacles']:
         min_y_spacing = params['min_spacing_y']
         for obs in params['obstacles']:
@@ -318,12 +333,14 @@ def calculate_chair_coordinates(params, layout_info):
                 if obs.get('type') == 'circle':
                     cx, cy, r = obs['x'], obs['y'], obs['radius']
                     is_below = chair_y >= (cy + r)
+                    # イスの左右端が円の左右端の間にあるか
                     is_aligned_horizontally = (chair_x < cx + r) and (chair_x + chair_w > cx - r)
                     if is_below and is_aligned_horizontally:
                         gap = chair_y - (cy + r)
                 else: # rectangle
                     obs_x, obs_y, obs_w, obs_d = obs['x'], obs['y'], obs['width'], obs['depth']
                     is_below = chair_y >= (obs_y + obs_d)
+                    # イスの左右端が矩形の左右端の間にあるか
                     is_aligned_horizontally = (chair_x < obs_x + obs_w) and (chair_x + chair_w > obs_x)
                     if is_below and is_aligned_horizontally:
                         gap = chair_y - (obs_y + obs_d)
@@ -346,7 +363,8 @@ def calculate_chair_coordinates(params, layout_info):
         "true_max": true_max_with_obstacles,
         "collision_skips": collision_skips,
         "spacing_skips": spacing_skips,
-        "offset_x": offset_x,
+        # 壁からの距離（中央揃えでない場合の調整が必要だが、クライアントの描画を優先してそのまま offset_x を返す）
+        "offset_x": offset_x, 
         "offset_y": offset_y,
         "zigzag_offset": space_x / 2 if params["zigzag_layout"] else 0,
     }
@@ -376,7 +394,6 @@ def create_json_response(params, layout_info, coords_data):
         "spacing_skips": coords_data.get("spacing_skips", 0)
     })
 
-# ▼▼▼【ここを丸ごと置き換え】▼▼▼
 def calculate_layout_for_specific_grid(params, specific_cols, specific_rows):
     """
     指定された列数・行数が収まる最大のイス間隔を見つけ出し、レイアウトを返す。
@@ -409,7 +426,6 @@ def calculate_layout_for_specific_grid(params, specific_cols, specific_rows):
     # 1. まず、指定された行が収まる最大の「縦」間隔を探す
     #    (広い方から試し、最初に見つかったものが最適解)
     for spacing_y in range(MAX_SPACING_SEARCH_CM, params["min_spacing_y"] - 1, -SPACING_SEARCH_STEP_CM):
-        space_y = params["chair_depth"] + spacing_y
         # 必要な全体の奥行きを計算
         required_depth = (specific_rows * params["chair_depth"]) + ((specific_rows - 1) * spacing_y) + total_aisle_depth
         
@@ -441,7 +457,6 @@ def calculate_layout_for_specific_grid(params, specific_cols, specific_rows):
     else:
         # 最低間隔でも収まらない場合は、配置不可として返す
         return { "found": False, "max": 0, "cols": specific_cols, "rows": specific_rows }
-# ▲▲▲【ここまで置き換え】▲▲▲
 
 
 # --- Flask ルーティング ---

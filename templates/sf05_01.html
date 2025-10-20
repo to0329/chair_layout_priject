@@ -190,6 +190,9 @@
       
       <h3 class="collapsible-header">障害物（柱など）のオプション</h3>
       <div class="collapsible-content">
+        <p>
+          <span style="font-weight: bold; color: #d9534f;">※配置済みの障害物は、図の上で直接ドラッグして移動できます。</span>
+        </p>
         <div id="obstacle_inputs">
           <p>
             形状: 
@@ -233,7 +236,7 @@
     <div class="output-panel">
       <p id="loading" style="display: none; font-weight: bold;">処理中…</p>
       <p id="result"></p>
-      <canvas id="layoutCanvas" style="max-width: 350px; width: 100%; border: 1px solid black; display: none;"></canvas>
+      <canvas id="layoutCanvas" style="max-width: 90%; width: 100%; border: 1px solid black; display: none; cursor: default;"></canvas>
     </div>
   </div>
 
@@ -242,6 +245,15 @@
     let obstacles = [];
     // ▼▼▼【追加】現在の計算モードを保持する変数 ▼▼▼
     let currentCalcMode = 'total';
+    // ▼▼▼【追加】サーバーからの最後の計算結果を保持する変数（D&Dでの再描画に使用） ▼▼▼
+    let lastCalculatedResult = null;
+
+    // --- ドラッグアンドドロップ関連のグローバル変数 ---
+    let isDragging = false; // ドラッグ中かどうかのフラグ
+    let draggedObstacleIndex = -1; // ドラッグ中の障害物のインデックス
+    let dragOffsetX = 0; // ドラッグ開始時のマウスと障害物原点とのズレ
+    let dragOffsetY = 0;
+    // --- ドラッグアンドドロップ関連のグローバル変数（ここまで） ---
 
     /**
      * ▼▼▼【追加】タブをクリックしたときに、表示を切り替える関数 ▼▼▼
@@ -295,22 +307,23 @@
       if (shape === 'rectangle') {
         const width = parseInt(document.getElementById('obstacle_width').value);
         const depth = parseInt(document.getElementById('obstacle_depth').value);
-        if (isNaN(width) || isNaN(depth)) isValid = false;
+        if (isNaN(width) || isNaN(depth) || width <= 0 || depth <= 0) isValid = false;
         Object.assign(newObstacle, { width, depth });
       } else if (shape === 'circle') {
         const radius = parseInt(document.getElementById('obstacle_radius').value);
-        if (isNaN(radius)) isValid = false;
+        if (isNaN(radius) || radius <= 0) isValid = false;
         Object.assign(newObstacle, { radius });
       }
 
       // 入力値が無効な場合はアラートを表示して処理を中断
       if (!isValid) {
-        alert('障害物の全ての値をcm単位で入力してください。');
+        alert('障害物の全ての値をcm単位で、正の数で入力してください。');
         return;
       }
       
       obstacles.push(newObstacle); // 配列に障害物を追加
       updateObstacleList(); // 画面のリスト表示を更新
+      sendData(); // 障害物を追加したら再計算
     }
 
     /**
@@ -323,9 +336,9 @@
         const item = document.createElement('li');
         let text = `障害物${index + 1}: `;
         if (obs.type === 'rectangle') {
-            text += `四角形 位置(X:${obs.x}, Y:${obs.y}), サイズ(幅:${obs.width}, 奥行:${obs.depth})`;
+            text += `四角形 位置(X:${Math.round(obs.x)}, Y:${Math.round(obs.y)}), サイズ(幅:${obs.width}, 奥行:${obs.depth})`;
         } else {
-            text += `円形 位置(X:${obs.x}, Y:${obs.y}), サイズ(半径:${obs.radius})`;
+            text += `円形 位置(X:${Math.round(obs.x)}, Y:${Math.round(obs.y)}), サイズ(半径:${obs.radius})`;
         }
         item.textContent = text;
         
@@ -336,6 +349,7 @@
         removeBtn.onclick = () => {
           obstacles.splice(index, 1); // 配列から該当の障害物を削除
           updateObstacleList(); // リスト表示を再更新
+          sendData(); // 障害物を削除したら再計算
         };
         item.appendChild(removeBtn);
         list.appendChild(item);
@@ -383,7 +397,128 @@
           }
         });
       });
+
+      // ▼▼▼【追加】障害物のドラッグアンドドロップ機能のセットアップ ▼▼▼
+      setupDragAndDrop();
+      // ▲▲▲【追加】ここまで ▲▲▲
     });
+
+    /**
+     * 障害物のD&Dイベントリスナーをセットアップする関数
+     */
+    function setupDragAndDrop() {
+        const canvas = document.getElementById("layoutCanvas");
+        let hallWidth, hallDepth;
+
+        // mousedown: ドラッグ開始の処理
+        canvas.addEventListener('mousedown', (e) => {
+            if (!lastCalculatedResult) return; // まだ計算が実行されていない場合は無視
+            
+            // Canvas上のクリックされた座標 (CM単位) を取得
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const clickX = (e.clientX - rect.left) * scaleX;
+            const clickY = (e.clientY - rect.top) * scaleY;
+
+            // どの障害物をクリックしたか判定
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obs = obstacles[i];
+
+                if (obs.type === 'circle') {
+                    // 円の中心からの距離で判定
+                    const dist = Math.sqrt(Math.pow(clickX - obs.x, 2) + Math.pow(clickY - obs.y, 2));
+                    if (dist <= obs.radius) {
+                        isDragging = true;
+                        draggedObstacleIndex = i;
+                        dragOffsetX = clickX - obs.x;
+                        dragOffsetY = clickY - obs.y;
+                        canvas.style.cursor = 'grabbing';
+                        break;
+                    }
+                } else { // rectangle
+                    const obsX = obs.x; 
+                    const obsY = obs.y; 
+                    const obsW = obs.width; 
+                    const obsD = obs.depth;
+                    // 矩形内のクリック判定
+                    if (clickX >= obsX && clickX <= obsX + obsW &&
+                        clickY >= obsY && clickY <= obsY + obsD) {
+                        isDragging = true;
+                        draggedObstacleIndex = i;
+                        dragOffsetX = clickX - obsX;
+                        dragOffsetY = clickY - obsY;
+                        canvas.style.cursor = 'grabbing';
+                        break;
+                    }
+                }
+            }
+        });
+
+        // mousemove: ドラッグ中の処理
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDragging) {
+                // ドラッグ中でない場合は、カーソルをポインターに変更する判定を行う (省略可)
+                canvas.style.cursor = 'default';
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            let newX = (e.clientX - rect.left) * scaleX;
+            let newY = (e.clientY - rect.top) * scaleY;
+
+            // 境界チェック (Canvasの外に出ないように)
+            hallWidth = lastCalculatedResult.hall_width;
+            hallDepth = lastCalculatedResult.hall_depth;
+
+            const obs = obstacles[draggedObstacleIndex];
+
+            if (obs.type === 'circle') {
+                const r = obs.radius;
+                obs.x = Math.min(hallWidth - r, Math.max(r, newX - dragOffsetX));
+                obs.y = Math.min(hallDepth - r, Math.max(r, newY - dragOffsetY));
+            } else { // rectangle
+                const w = obs.width;
+                const d = obs.depth;
+                obs.x = Math.min(hallWidth - w, Math.max(0, newX - dragOffsetX));
+                obs.y = Math.min(hallDepth - d, Math.max(0, newY - dragOffsetY));
+            }
+            
+            // リアルタイムで再描画 (イスの配置は変わらないが、障害物の位置が変わる)
+            if (lastCalculatedResult) {
+                drawLayout(lastCalculatedResult);
+            }
+        });
+
+        // mouseup: ドラッグ終了の処理
+        canvas.addEventListener('mouseup', (e) => {
+            if (isDragging) {
+                isDragging = false;
+                draggedObstacleIndex = -1;
+                canvas.style.cursor = 'default';
+                
+                // 障害物のリスト表示を更新 (座標が小数点を含む可能性があるため四捨五入して表示)
+                updateObstacleList();
+                
+                // **重要:** サーバーに再計算を依頼し、配置されたイスの位置を更新
+                sendData(); 
+            }
+        });
+
+        // mouseout: Canvas外に出た場合もドラッグを終了
+        canvas.addEventListener('mouseout', (e) => {
+            // マウスがボタンを押したままCanvas外に出た場合のみ処理
+            if (isDragging && e.buttons === 1) { 
+                isDragging = false;
+                draggedObstacleIndex = -1;
+                canvas.style.cursor = 'default';
+                updateObstacleList();
+                sendData(); 
+            }
+        });
+    }
   
     /**
      * 「計算」ボタンが押されたときのメイン処理。
@@ -395,10 +530,12 @@
       const canvasDisplay = document.getElementById("layoutCanvas");
   
       // 計算開始前に、ローディング表示をONにし、前回の結果をクリア
-      loadingMessage.style.display = "block";
-      resultDisplay.innerHTML = '';
-      canvasDisplay.style.display = "none";
-  
+      if (!isDragging) { // D&D中ではない場合のみメッセージを更新
+        loadingMessage.style.display = "block";
+        resultDisplay.innerHTML = '';
+        canvasDisplay.style.display = "none";
+      }
+      
       // フォームから入力値を取得し、サーバーのAPI仕様に合わせたJSONオブジェクトを作成
       const data = {
         // 会場のサイズはメートル(m)からセンチメートル(cm)に変換
@@ -442,9 +579,12 @@
           body: JSON.stringify(data),
         });
         const result = await response.json(); // レスポンスをJSONとして解析
+
+        // ▼▼▼【変更】結果をグローバル変数に保存 ▼▼▼
+        lastCalculatedResult = result;
+
         const display = document.getElementById("result");
-        display.innerHTML = '';
-  
+        
         // サーバーからエラーが返ってきた場合
         if (result.error) {
             display.innerHTML = `<span class="highlight" style="color: red;">エラー:</span> ${result.error}`;
@@ -456,8 +596,11 @@
           const strongText = document.createElement('span');
           strongText.className = 'highlight';
           strongText.textContent = 'イスを1脚も配置できません！';
+          display.innerHTML = ''; // クリア
           display.appendChild(strongText);
           display.appendChild(document.createTextNode('\n会場やイスのサイズ、通路設定などを見直してください。'));
+          canvasDisplay.style.display = "block"; // 会場の枠線だけは表示
+          drawLayout(result);
           return;
         }
   
@@ -465,8 +608,8 @@
         drawLayout(result);
   
         // --- 計算結果のテキスト表示 ---
-
-        // ▼▼▼【ここから修正】▼▼▼
+        display.innerHTML = ''; // クリア
+        
         // 指定した行・列で配置できず、代替案が表示された場合のメッセージ
         if (result.original_request_failed) {
             const strongText = document.createElement('span');
@@ -474,7 +617,6 @@
             strongText.style.color = '#e67e22'; // 少し警告的な色
             strongText.textContent = 'ご指定の列×行では配置できませんでした。';
             display.appendChild(strongText);
-            // 「代わりに、...」の文章を削除し、改行のみ残す
         }
 
         // 配置が成功したかどうかのメインメッセージ
@@ -503,7 +645,6 @@
           display.appendChild(strongText2);
           display.appendChild(document.createTextNode('）のレイアウトを表示します。\n'));
         }
-        // ▲▲▲【ここまで修正】▲▲▲
   
         // 詳細なレイアウト情報を表示
         display.appendChild(document.createTextNode(`\nこの会場の最大配置可能数： ${result.cols}列 × ${result.rows}行 = ${result.max}脚\n` + `壁からの距離：横${result.offset_x}cm 縦${result.offset_y}cm\n` + `間隔：横${result.spacing_x}cm 縦${result.spacing_y}cm`));
@@ -523,7 +664,7 @@
   
     /**
      * サーバーから受け取ったデータをもとに、Canvasにレイアウト図を描画する関数
-     * @param {object} data - サーバーからの計算結果JSONオブジェクト
+     * @param {object} data - サーバーからの計算結果JSONオブジェクト (lastCalculatedResult)
      */
     function drawLayout(data) {
         const canvas = document.getElementById("layoutCanvas");
@@ -533,7 +674,7 @@
         canvas.width = data.hall_width;
         canvas.height = data.hall_depth;
         canvas.style.display = "block"; // Canvasを表示
-    
+        
         // --- 描画開始 ---
         ctx.clearRect(0, 0, canvas.width, canvas.height); // Canvasをクリア
         
@@ -553,11 +694,12 @@
         });
         
         // 3. 障害物を描画
-        if (data.obstacles) {
+        // ▼▼▼【変更】グローバルのobstacles配列を使用（最新の位置を反映するため） ▼▼▼
+        if (obstacles) {
             ctx.fillStyle = 'rgba(128, 128, 128, 0.8)'; // 半透明のグレー
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 2;
-            data.obstacles.forEach(obs => {
+            obstacles.forEach(obs => {
                 if (obs.type === 'circle') {
                     ctx.beginPath();
                     ctx.arc(obs.x, obs.y, obs.radius, 0, 2 * Math.PI);
@@ -569,7 +711,8 @@
                 }
             });
         }
-        
+        // ▲▲▲【変更】ここまで ▲▲▲
+
         // イスが一つもなければ、寸法線は描画しない
         if (data.coords.length === 0) {
             return;
@@ -649,11 +792,12 @@
         ctx.fillText(`${Math.round(bottomGap)} cm`, bottomTextX + 15, bottomTextY);
         
         // 4-3. 障害物とイスの間の距離を描画 (緑色)
-        if (data.obstacles && data.coords.length > 0) {
+        if (obstacles.length > 0 && data.coords.length > 0) {
             ctx.fillStyle = '#28a745';
             ctx.strokeStyle = '#28a745';
 
-            data.obstacles.forEach(obs => {
+            // ▼▼▼【変更】data.obstacles ではなく グローバルの obstacles を使用 ▼▼▼
+            obstacles.forEach(obs => {
                 // 各障害物の上下左右で最も近いイスとその距離を保持するオブジェクト
                 let minDist = { top: Infinity, bottom: Infinity, left: Infinity, right: Infinity };
                 let nearestChair = { top: null, bottom: null, left: null, right: null };
@@ -709,14 +853,14 @@
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 
-                if (nearestChair.left) {
+                if (nearestChair.left && minDist.left < Infinity) {
                     const xStart = nearestChair.left.x + nearestChair.left.width;
                     const xEnd = (obs.type === 'circle') ? obs.x - obs.radius : obs.x;
                     const y = (obs.type === 'circle') ? obs.y : obs.y + obs.depth / 2;
                     ctx.beginPath(); ctx.moveTo(xStart, y); ctx.lineTo(xEnd, y); ctx.moveTo(xStart, y - 10); ctx.lineTo(xStart, y + 10); ctx.moveTo(xEnd, y - 10); ctx.lineTo(xEnd, y + 10); ctx.stroke();
                     ctx.fillText(`${Math.round(minDist.left)} cm`, xStart + minDist.left / 2, y - fontSize);
                 }
-                if (nearestChair.right) {
+                if (nearestChair.right && minDist.right < Infinity) {
                     const xStart = (obs.type === 'circle') ? obs.x + obs.radius : obs.x + obs.width;
                     const xEnd = nearestChair.right.x;
                     const y = (obs.type === 'circle') ? obs.y : obs.y + obs.depth / 2;
@@ -724,7 +868,7 @@
                     ctx.fillText(`${Math.round(minDist.right)} cm`, xStart + minDist.right / 2, y - fontSize);
                 }
                 // 縦方向の寸法テキストは90度回転させて表示
-                if (nearestChair.top) {
+                if (nearestChair.top && minDist.top < Infinity) {
                     const yStart = nearestChair.top.y + nearestChair.top.depth;
                     const yEnd = (obs.type === 'circle') ? obs.y - obs.radius : obs.y;
                     const x = (obs.type === 'circle') ? obs.x : obs.x + obs.width / 2;
@@ -732,7 +876,7 @@
                     ctx.save(); ctx.translate(x - fontSize, yStart + minDist.top / 2); ctx.rotate(-Math.PI/2); ctx.textAlign = 'center';
                     ctx.fillText(`${Math.round(minDist.top)} cm`, 0, 0); ctx.restore();
                 }
-                if (nearestChair.bottom) {
+                if (nearestChair.bottom && minDist.bottom < Infinity) {
                     const yStart = (obs.type === 'circle') ? obs.y + obs.radius : obs.y + obs.depth;
                     const yEnd = nearestChair.bottom.y;
                     const x = (obs.type === 'circle') ? obs.x : obs.x + obs.width / 2;
@@ -742,6 +886,7 @@
                 }
             });
         }
+        // ▲▲▲【変更】ここまで ▲▲▲
     }
   </script>
 </body>
