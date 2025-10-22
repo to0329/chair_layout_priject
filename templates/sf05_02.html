@@ -243,9 +243,9 @@
   <script>
     // 追加された障害物オブジェクトを格納するグローバル配列
     let obstacles = [];
-    // ▼▼▼【追加】現在の計算モードを保持する変数 ▼▼▼
+    // ▼▼▼【変更なし】現在の計算モードを保持する変数 ▼▼▼
     let currentCalcMode = 'total';
-    // ▼▼▼【追加】サーバーからの最後の計算結果を保持する変数（D&Dでの再描画に使用） ▼▼▼
+    // ▼▼▼【変更なし】サーバーからの最後の計算結果を保持する変数（D&Dでの再描画に使用） ▼▼▼
     let lastCalculatedResult = null;
 
     // --- ドラッグアンドドロップ関連のグローバル変数 ---
@@ -256,7 +256,7 @@
     // --- ドラッグアンドドロップ関連のグローバル変数（ここまで） ---
 
     /**
-     * ▼▼▼【追加】タブをクリックしたときに、表示を切り替える関数 ▼▼▼
+     * ▼▼▼【変更なし】タブをクリックしたときに、表示を切り替える関数 ▼▼▼
      */
     function switchTab(event, mode) {
       currentCalcMode = mode; // 現在のモードを更新
@@ -273,7 +273,7 @@
     }
 
     /**
-     * 障害物の「形状」セレクトボックスの変更に応じて、表示する入力欄を切り替える関数
+     * 【変更なし】障害物の「形状」セレクトボックスの変更に応じて、表示する入力欄を切り替える関数
      */
     function updateObstacleInputs() {
         const shape = document.getElementById('obstacle_shape').value;
@@ -293,7 +293,7 @@
     }
 
     /**
-     * 「障害物を追加」ボタンが押されたときに、入力値をオブジェクト化してobstacles配列に追加する関数
+     * 【変更なし】「障害物を追加」ボタンが押されたときに、入力値をオブジェクト化してobstacles配列に追加する関数
      */
     function addObstacle() {
       const shape = document.getElementById('obstacle_shape').value;
@@ -327,15 +327,19 @@
     }
 
     /**
-     * obstacles配列の内容を元に、画面上の障害物リスト（<ul>）を再描画する関数
+     * ▼▼▼【修正】obstacles配列の内容を元に、リスト表示を更新（表示番号をオブジェクトに格納）する関数 ▼▼▼
      */
     function updateObstacleList() {
       const list = document.getElementById('obstacle_list');
       list.innerHTML = ''; // リストを一旦空にする
       obstacles.forEach((obs, index) => {
+        // 表示番号（1から始まる）をオブジェクトに格納
+        obs.display_index = index + 1;
+
         const item = document.createElement('li');
-        let text = `障害物${index + 1}: `;
+        let text = `障害物${obs.display_index}: `;
         if (obs.type === 'rectangle') {
+            // D&Dにより座標がfloatになっている可能性があるため、四捨五入して表示
             text += `四角形 位置(X:${Math.round(obs.x)}, Y:${Math.round(obs.y)}), サイズ(幅:${obs.width}, 奥行:${obs.depth})`;
         } else {
             text += `円形 位置(X:${Math.round(obs.x)}, Y:${Math.round(obs.y)}), サイズ(半径:${obs.radius})`;
@@ -355,9 +359,10 @@
         list.appendChild(item);
       });
     }
+    // ▲▲▲【修正】ここまで ▲▲▲
 
     /**
-     * 「通路のタイプ」セレクトボックスの変更に応じて、詳細設定パネルの表示/非表示を切り替える関数
+     * 【変更なし】「通路のタイプ」セレクトボックスの変更に応じて、詳細設定パネルの表示/非表示を切り替える関数
      */
     function updateAisleSettings() {
       const mode = document.getElementById("aisle_mode").value;
@@ -377,7 +382,7 @@
     }
   
     /**
-     * ページの読み込みが完了したときに実行される初期化処理
+     * 【変更なし】ページの読み込みが完了したときに実行される初期化処理
      */
     document.addEventListener("DOMContentLoaded", function() {
       updateAisleSettings(); // 通路設定パネルの初期状態を設定
@@ -398,13 +403,12 @@
         });
       });
 
-      // ▼▼▼【追加】障害物のドラッグアンドドロップ機能のセットアップ ▼▼▼
+      // 障害物のドラッグアンドドロップ機能のセットアップ
       setupDragAndDrop();
-      // ▲▲▲【追加】ここまで ▲▲▲
     });
 
     /**
-     * 障害物のD&Dイベントリスナーをセットアップする関数
+     * 【変更なし】障害物のD&Dイベントリスナーをセットアップする関数
      */
     function setupDragAndDrop() {
         const canvas = document.getElementById("layoutCanvas");
@@ -521,8 +525,7 @@
     }
   
     /**
-     * 「計算」ボタンが押されたときのメイン処理。
-     * 入力値を取得し、サーバーに送信して、結果を受け取って表示します。
+     * 【変更なし】「計算」ボタンが押されたときのメイン処理。
      */
     async function sendData() {
       const loadingMessage = document.getElementById("loading");
@@ -553,7 +556,7 @@
         calculation_mode: currentCalcMode // ★現在のモードを送信
       };
       
-      // ▼▼▼【修正】モードに応じて送信するデータを変更 ▼▼▼
+      // モードに応じて送信するデータを変更
       if (currentCalcMode === 'specific_grid') {
         data.specific_cols = parseInt(document.getElementById("specific_cols").value);
         data.specific_rows = parseInt(document.getElementById("specific_rows").value);
@@ -580,7 +583,7 @@
         });
         const result = await response.json(); // レスポンスをJSONとして解析
 
-        // ▼▼▼【変更】結果をグローバル変数に保存 ▼▼▼
+        // 結果をグローバル変数に保存
         lastCalculatedResult = result;
 
         const display = document.getElementById("result");
@@ -694,25 +697,45 @@
         });
         
         // 3. 障害物を描画
-        // ▼▼▼【変更】グローバルのobstacles配列を使用（最新の位置を反映するため） ▼▼▼
         if (obstacles) {
             ctx.fillStyle = 'rgba(128, 128, 128, 0.8)'; // 半透明のグレー
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 2;
+            
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            // 番号のフォントサイズを設定
+            const obsFontSize = Math.max(16, data.hall_width / 100); 
+            
             obstacles.forEach(obs => {
+                let centerX, centerY;
+
                 if (obs.type === 'circle') {
                     ctx.beginPath();
                     ctx.arc(obs.x, obs.y, obs.radius, 0, 2 * Math.PI);
                     ctx.fill();
                     ctx.stroke();
+                    // 円の中心座標
+                    centerX = obs.x;
+                    centerY = obs.y;
                 } else { // rectangle
                     ctx.fillRect(obs.x, obs.y, obs.width, obs.depth);
                     ctx.strokeRect(obs.x, obs.y, obs.width, obs.depth);
+                    // 矩形の中心座標
+                    centerX = obs.x + obs.width / 2;
+                    centerY = obs.y + obs.depth / 2;
                 }
+                
+                // 障害物番号の描画
+                ctx.fillStyle = 'white'; // 番号の色
+                ctx.font = `bold ${obsFontSize}px sans-serif`;
+                // obs.display_index は updateObstacleList() で設定されている
+                ctx.fillText(obs.display_index, centerX, centerY); 
+                // 次の描画のために色をリセット
+                ctx.fillStyle = 'rgba(128, 128, 128, 0.8)';
             });
         }
-        // ▲▲▲【変更】ここまで ▲▲▲
-
+        
         // イスが一つもなければ、寸法線は描画しない
         if (data.coords.length === 0) {
             return;
@@ -796,7 +819,6 @@
             ctx.fillStyle = '#28a745';
             ctx.strokeStyle = '#28a745';
 
-            // ▼▼▼【変更】data.obstacles ではなく グローバルの obstacles を使用 ▼▼▼
             obstacles.forEach(obs => {
                 // 各障害物の上下左右で最も近いイスとその距離を保持するオブジェクト
                 let minDist = { top: Infinity, bottom: Infinity, left: Infinity, right: Infinity };
@@ -886,7 +908,6 @@
                 }
             });
         }
-        // ▲▲▲【変更】ここまで ▲▲▲
     }
   </script>
 </body>

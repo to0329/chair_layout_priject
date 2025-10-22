@@ -1,5 +1,4 @@
-#〇×〇機能の追加
-#〇×〇機能の左右に隙間
+#障害物に番号をふる
 from flask import Flask, request, jsonify, render_template, Response
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -116,24 +115,25 @@ def parse_and_validate_input(data):
 
         for obs in params["obstacles"]:
             # D&D操作により座標がfloatになっている可能性があるため、floatで受け取る
-            obs['x'] = float(obs.get('x'))
-            obs['y'] = float(obs.get('y'))
+            if 'x' not in obs or 'y' not in obs:
+                 raise ValueError("障害物の基本データ(x, y)が不足しています。")
+
+            obs['x'] = float(obs.get('x')) 
+            obs['y'] = float(obs.get('y')) 
             
             obs_type = obs.get('type')
-            if not obs_type or not all(k in obs for k in ['x', 'y']):
-                raise ValueError("障害物の基本データ(type, x, y)が不足しています。")
+            if not obs_type:
+                raise ValueError("障害物の基本データ(type)が不足しています。")
             
             if obs_type == 'rectangle':
-                # サイズはintのまま
-                obs['width'] = int(obs.get('width'))
-                obs['depth'] = int(obs.get('depth'))
                 if not all(k in obs for k in ['width', 'depth']):
                     raise ValueError("四角形障害物のデータ(width, depth)が不足しています。")
+                obs['width'] = int(obs.get('width'))
+                obs['depth'] = int(obs.get('depth'))
             elif obs_type == 'circle':
-                # 半径はintのまま
-                obs['radius'] = int(obs.get('radius'))
                 if 'radius' not in obs:
                     raise ValueError("円形障害物のデータ(radius)が不足しています。")
+                obs['radius'] = int(obs.get('radius'))
             else:
                 raise ValueError(f"未知の障害物タイプ: {obs_type}")
 
@@ -319,7 +319,6 @@ def calculate_chair_coordinates(params, layout_info):
 
     coords_to_remove = set()
     spacing_skips = 0
-    # 障害物の下の椅子の間隔チェック (会場の構造上、障害物の上もチェックすべきだが、ここでは「最低限の間隔」として縦方向のみチェック)
     if params['obstacles']:
         min_y_spacing = params['min_spacing_y']
         for obs in params['obstacles']:
@@ -333,14 +332,12 @@ def calculate_chair_coordinates(params, layout_info):
                 if obs.get('type') == 'circle':
                     cx, cy, r = obs['x'], obs['y'], obs['radius']
                     is_below = chair_y >= (cy + r)
-                    # イスの左右端が円の左右端の間にあるか
                     is_aligned_horizontally = (chair_x < cx + r) and (chair_x + chair_w > cx - r)
                     if is_below and is_aligned_horizontally:
                         gap = chair_y - (cy + r)
                 else: # rectangle
                     obs_x, obs_y, obs_w, obs_d = obs['x'], obs['y'], obs['width'], obs['depth']
                     is_below = chair_y >= (obs_y + obs_d)
-                    # イスの左右端が矩形の左右端の間にあるか
                     is_aligned_horizontally = (chair_x < obs_x + obs_w) and (chair_x + chair_w > obs_x)
                     if is_below and is_aligned_horizontally:
                         gap = chair_y - (obs_y + obs_d)
@@ -363,8 +360,7 @@ def calculate_chair_coordinates(params, layout_info):
         "true_max": true_max_with_obstacles,
         "collision_skips": collision_skips,
         "spacing_skips": spacing_skips,
-        # 壁からの距離（中央揃えでない場合の調整が必要だが、クライアントの描画を優先してそのまま offset_x を返す）
-        "offset_x": offset_x, 
+        "offset_x": offset_x,
         "offset_y": offset_y,
         "zigzag_offset": space_x / 2 if params["zigzag_layout"] else 0,
     }
@@ -462,7 +458,7 @@ def calculate_layout_for_specific_grid(params, specific_cols, specific_rows):
 # --- Flask ルーティング ---
 @app.route("/")
 def index():
-    return render_template("sf05_01.html")
+    return render_template("sf04.html")
 
 @app.route("/calculate", methods=["POST"])
 @limiter.limit("10 per minute")
@@ -521,9 +517,12 @@ def calculate():
         return response
 
     except ValueError as e:
+        # 入力値のバリデーションエラー
         return jsonify({"error": f"入力内容が不正です: {e}"}), 400
     except Exception as e:
+        # 予期しないその他のエラー
         print(f"An unexpected error occurred: {e}")
+        # 詳細なエラーをクライアントに返さず、一般的なメッセージに留める
         return jsonify({"error": "サーバー内部で予期しないエラーが発生しました。"}), 500
 
 # --- アプリケーションの実行 ---
