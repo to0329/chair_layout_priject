@@ -1,4 +1,5 @@
 #障害物に番号をふる
+#通路の幅を図に表示
 from flask import Flask, request, jsonify, render_template, Response
 from flask_cors import CORS
 from flask_limiter import Limiter
