@@ -825,7 +825,7 @@
         const bottomTextY = bottomStartY + bottomGap / 2;
         ctx.beginPath(); ctx.moveTo(bottomTextX - 10, bottomStartY); ctx.lineTo(bottomTextX + 10, bottomStartY); ctx.moveTo(bottomTextX, bottomStartY); ctx.lineTo(bottomTextX, data.hall_depth); ctx.moveTo(bottomTextX - 10, data.hall_depth); ctx.lineTo(bottomTextX + 10, data.hall_depth); ctx.stroke();
         ctx.fillText(`${Math.round(bottomGap)} cm`, bottomTextX + 15, bottomTextY);
-        
+
         // --- 4-3. 通路の幅を描画 (オレンジ色) ---
         // 通路の幅は Python 側の定数 AISLE_WIDTH_CM = 100cm を使用
         const AISLE_WIDTH_CM = 100; 
@@ -905,7 +905,116 @@
         }
 
 
-        // 4-4. 障害物とイスの間の距離を描画 (緑色)
+        // --- 4-4. 通路を含む総間隔を描画 (濃い緑色) ---
+        ctx.fillStyle = '#006400'; // 濃い緑
+        ctx.strokeStyle = '#006400';
+        ctx.lineWidth = 2;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        if (data.cols > 1 && data.coords.length >= 2) { // 横の総間隔
+            const chair1 = data.coords[0]; const chair2 = data.coords[1];
+            // イスの端から次のイスの端までの距離 = イス幅 + イス間隔 + 通路幅 (100cm)
+            const totalX = data.chair_width + data.spacing_x + AISLE_WIDTH_CM;
+            const startX = chair1[0]; 
+            const endX = chair2[0]; 
+            // 描画位置は、既存の寸法線と干渉しないように上側に設定
+            const midY = 50; 
+            
+            // イスの始点から次のイスの始点まで線を引き、途中に通路があることを示すために点線にする
+            ctx.setLineDash([10, 5]); // 点線設定
+            ctx.beginPath();
+            ctx.moveTo(startX, midY); ctx.lineTo(endX, midY); // 水平線
+            ctx.moveTo(startX, midY - 10); ctx.lineTo(startX, midY + 10); // 左端のケバ
+            ctx.moveTo(endX, midY - 10); ctx.lineTo(endX, midY + 10); // 右端のケバ
+            ctx.stroke();
+            ctx.setLineDash([]); // 点線解除
+            
+            ctx.fillText(`横総間隔 ${totalX} cm`, startX + totalX / 2, midY - fontSize);
+        }
+
+        if (data.rows > 1 && data.coords.length > data.cols) { // 縦の総間隔
+            const chair1 = data.coords[0]; const chair2 = data.coords[data.cols];
+            const totalY = data.chair_depth + data.spacing_y + AISLE_WIDTH_CM;
+            const startY = chair1[1]; 
+            const endY = chair2[1]; 
+            // 描画位置は、既存の寸法線と干渉しないように右側に設定
+            const midX = data.hall_width - 50; 
+            
+            ctx.setLineDash([10, 5]); // 点線設定
+            ctx.beginPath();
+            ctx.moveTo(midX, startY); ctx.lineTo(midX, endY); // 垂直線
+            ctx.moveTo(midX - 10, startY); ctx.lineTo(midX + 10, startY); // 上端のケバ
+            ctx.moveTo(midX - 10, endY); ctx.lineTo(midX + 10, endY); // 下端のケバ
+            ctx.stroke();
+            ctx.setLineDash([]); // 点線解除
+            
+            // 縦方向の寸法テキストは90度回転させて表示
+            ctx.save();
+            ctx.translate(midX + fontSize, startY + totalY / 2); 
+            ctx.rotate(Math.PI/2);
+            ctx.textAlign = 'center';
+            ctx.fillText(`縦総間隔 ${totalY} cm`, 0, 0); 
+            ctx.restore();
+        }
+
+
+        // --- 4-5. イスからイスまでの合計距離を描画 (紫色) ---
+        ctx.fillStyle = '#800080'; // 紫
+        ctx.strokeStyle = '#800080';
+        ctx.lineWidth = 2;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        if (data.cols > 1 && data.coords.length >= 2) { // 横の合計距離
+            const chair1 = data.coords[0]; const chair2 = data.coords[1];
+            // イスの端から次のイスの端までの距離 = イス幅 + イス間隔
+            const totalX = data.chair_width + data.spacing_x; 
+            const startX = chair1[0]; const endX = chair1[0] + totalX; // イス1の始点からイス2の始点
+            // 既存の寸法線と干渉しないように、下から100cmの位置に固定
+            const midY = data.hall_depth - 100; 
+            
+            // 最初のイスとその隣のイスに通路がない場合（通路モードがnoneまたはevery_n/fixed_numberだが最初のイス間ではない場合）に描画
+            const gap = chair2[0] - (chair1[0] + data.chair_width);
+            if (Math.abs(gap - data.spacing_x) < 1) { // 途中に通路がない場合の確認
+                ctx.beginPath();
+                ctx.moveTo(startX, midY); ctx.lineTo(endX, midY); // 水平線
+                ctx.moveTo(startX, midY - 10); ctx.lineTo(startX, midY + 10); // 左端のケバ
+                ctx.moveTo(endX, midY - 10); ctx.lineTo(endX, midY + 10); // 右端のケバ
+                ctx.stroke();
+                
+                ctx.fillText(`イス～イス ${totalX} cm`, startX + totalX / 2, midY - fontSize);
+            }
+        }
+
+        if (data.rows > 1 && data.coords.length > data.cols) { // 縦の合計距離
+            const chair1 = data.coords[0]; const chair2 = data.coords[data.cols];
+            // イスの端から次のイスの端までの距離 = イス奥行き + イス間隔
+            const totalY = data.chair_depth + data.spacing_y;
+            const startY = chair1[1]; const endY = chair1[1] + totalY; // イス1の始点からイス2の始点
+            // 既存の寸法線と干渉しないように、左から100cmの位置に固定
+            const midX = 100; 
+
+            const gap = chair2[1] - (chair1[1] + data.chair_depth);
+            if (Math.abs(gap - data.spacing_y) < 1) { // 途中に通路がない場合の確認
+                ctx.beginPath();
+                ctx.moveTo(midX, startY); ctx.lineTo(midX, endY); // 垂直線
+                ctx.moveTo(midX - 10, startY); ctx.lineTo(midX + 10, startY); // 上端のケバ
+                ctx.moveTo(midX - 10, endY); ctx.lineTo(midX + 10, endY); // 下端のケバ
+                ctx.stroke();
+                
+                // 縦方向の寸法テキストは90度回転させて表示
+                ctx.save();
+                ctx.translate(midX - fontSize, startY + totalY / 2); 
+                ctx.rotate(-Math.PI/2);
+                ctx.textAlign = 'center';
+                ctx.fillText(`イス～イス ${totalY} cm`, 0, 0); 
+                ctx.restore();
+            }
+        }
+
+
+        // 4-6. 障害物とイスの間の距離を描画 (緑色)
         if (obstacles.length > 0 && data.coords.length > 0) {
             ctx.fillStyle = '#28a745';
             ctx.strokeStyle = '#28a745';
@@ -998,51 +1107,6 @@
                     ctx.fillText(`${Math.round(minDist.bottom)} cm`, 0, 0); ctx.restore();
                 }
             });
-        }
-        
-        // --- 4-5. イスからイスまでの合計距離を描画 (紫色) ---
-        ctx.fillStyle = '#800080'; // 紫
-        ctx.strokeStyle = '#800080';
-        ctx.lineWidth = 2;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
-        if (data.cols > 1 && data.coords.length >= 2) { // 横の合計距離
-            const chair1 = data.coords[0]; const chair2 = data.coords[1];
-            const totalX = data.chair_width + data.spacing_x;
-            const startX = chair1[0]; const endX = chair2[0];
-            // 既存の赤線、青線、オレンジ線と干渉しないように、一番下にずらす
-            const midY = data.hall_depth - 100; // 下から100cmの位置に固定
-            
-            ctx.beginPath();
-            ctx.moveTo(startX, midY); ctx.lineTo(endX, midY); // 水平線
-            ctx.moveTo(startX, midY - 10); ctx.lineTo(startX, midY + 10); // 左端のケバ
-            ctx.moveTo(endX, midY - 10); ctx.lineTo(endX, midY + 10); // 右端のケバ
-            ctx.stroke();
-            
-            ctx.fillText(`イス～イス（横） ${totalX} cm`, startX + totalX / 2, midY - fontSize);
-        }
-
-        if (data.rows > 1 && data.coords.length > data.cols) { // 縦の合計距離
-            const chair1 = data.coords[0]; const chair2 = data.coords[data.cols];
-            const totalY = data.chair_depth + data.spacing_y;
-            const startY = chair1[1]; const endY = chair2[1];
-            // 既存の赤線、青線、オレンジ線と干渉しないように、一番左にずらす
-            const midX = 100; // 左から100cmの位置に固定
-            
-            ctx.beginPath();
-            ctx.moveTo(midX, startY); ctx.lineTo(midX, endY); // 垂直線
-            ctx.moveTo(midX - 10, startY); ctx.lineTo(midX + 10, startY); // 上端のケバ
-            ctx.moveTo(midX - 10, endY); ctx.lineTo(midX + 10, endY); // 下端のケバ
-            ctx.stroke();
-            
-            // 縦方向の寸法テキストは90度回転させて表示
-            ctx.save();
-            ctx.translate(midX - fontSize, startY + totalY / 2); 
-            ctx.rotate(-Math.PI/2);
-            ctx.textAlign = 'center';
-            ctx.fillText(`イス～イス（縦） ${totalY} cm`, 0, 0); 
-            ctx.restore();
         }
     }
   </script>
