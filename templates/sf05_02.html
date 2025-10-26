@@ -999,6 +999,51 @@
                 }
             });
         }
+        
+        // --- 4-5. イスからイスまでの合計距離を描画 (紫色) ---
+        ctx.fillStyle = '#800080'; // 紫
+        ctx.strokeStyle = '#800080';
+        ctx.lineWidth = 2;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        if (data.cols > 1 && data.coords.length >= 2) { // 横の合計距離
+            const chair1 = data.coords[0]; const chair2 = data.coords[1];
+            const totalX = data.chair_width + data.spacing_x;
+            const startX = chair1[0]; const endX = chair2[0];
+            // 既存の赤線、青線、オレンジ線と干渉しないように、一番下にずらす
+            const midY = data.hall_depth - 100; // 下から100cmの位置に固定
+            
+            ctx.beginPath();
+            ctx.moveTo(startX, midY); ctx.lineTo(endX, midY); // 水平線
+            ctx.moveTo(startX, midY - 10); ctx.lineTo(startX, midY + 10); // 左端のケバ
+            ctx.moveTo(endX, midY - 10); ctx.lineTo(endX, midY + 10); // 右端のケバ
+            ctx.stroke();
+            
+            ctx.fillText(`イス～イス（横） ${totalX} cm`, startX + totalX / 2, midY - fontSize);
+        }
+
+        if (data.rows > 1 && data.coords.length > data.cols) { // 縦の合計距離
+            const chair1 = data.coords[0]; const chair2 = data.coords[data.cols];
+            const totalY = data.chair_depth + data.spacing_y;
+            const startY = chair1[1]; const endY = chair2[1];
+            // 既存の赤線、青線、オレンジ線と干渉しないように、一番左にずらす
+            const midX = 100; // 左から100cmの位置に固定
+            
+            ctx.beginPath();
+            ctx.moveTo(midX, startY); ctx.lineTo(midX, endY); // 垂直線
+            ctx.moveTo(midX - 10, startY); ctx.lineTo(midX + 10, startY); // 上端のケバ
+            ctx.moveTo(midX - 10, endY); ctx.lineTo(midX + 10, endY); // 下端のケバ
+            ctx.stroke();
+            
+            // 縦方向の寸法テキストは90度回転させて表示
+            ctx.save();
+            ctx.translate(midX - fontSize, startY + totalY / 2); 
+            ctx.rotate(-Math.PI/2);
+            ctx.textAlign = 'center';
+            ctx.fillText(`イス～イス（縦） ${totalY} cm`, 0, 0); 
+            ctx.restore();
+        }
     }
   </script>
 </body>
