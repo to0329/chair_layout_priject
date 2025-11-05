@@ -259,6 +259,10 @@
     let currentCalcMode = 'total';
     // ▼▼▼【変更なし】サーバーからの最後の計算結果を保持する変数（D&Dでの再描画に使用） ▼▼▼
     let lastCalculatedResult = null;
+    
+    // 🚨【修正】サーバー側の定数と一致させるためのクライアント側の上限値を定義 (cm/100)
+    const MAX_HALL_DIMENSION_M = 150; // 15000cm
+    const MAX_CHAIR_COUNT_JS = 50000;
 
     // --- ドラッグアンドドロップ関連のグローバル変数 ---
     let isDragging = false; // ドラッグ中かどうかのフラグ
@@ -339,7 +343,7 @@
     }
 
     /**
-     * ▼▼▼【修正】obstacles配列の内容を元に、リスト表示を更新（表示番号をオブジェクトに格納）する関数 ▼▼▼
+     * ▼▼▼【変更なし】obstacles配列の内容を元に、リスト表示を更新（表示番号をオブジェクトに格納）する関数 ▼▼▼
      */
     function updateObstacleList() {
       const list = document.getElementById('obstacle_list');
@@ -371,7 +375,7 @@
         list.appendChild(item);
       });
     }
-    // ▲▲▲【修正】ここまで ▲▲▲
+    // ▲▲▲【変更なし】ここまで ▲▲▲
 
     /**
      * 【変更なし】「通路のタイプ」セレクトボックスの変更に応じて、詳細設定パネルの表示/非表示を切り替える関数
@@ -537,7 +541,7 @@
     }
   
     /**
-     * 【変更なし】「計算」ボタンが押されたときのメイン処理。
+     * 【修正】「計算」ボタンが押されたときのメイン処理。
      */
     async function sendData() {
       const loadingMessage = document.getElementById("loading");
@@ -551,11 +555,35 @@
         canvasDisplay.style.display = "none";
       }
       
+      // フォームから入力値を取得
+      const hall_width_m = parseFloat(document.getElementById("hall_width").value);
+      const hall_depth_m = parseFloat(document.getElementById("hall_depth").value);
+      const num_chairs_input = parseInt(document.getElementById("num_chairs").value);
+
+      // 🚨【修正】クライアント側のバリデーション
+      if (isNaN(hall_width_m) || isNaN(hall_depth_m) || hall_width_m <= 0 || hall_depth_m <= 0) {
+        alert('会場のサイズを正の数で入力してください。');
+        loadingMessage.style.display = "none";
+        return;
+      }
+
+      if (hall_width_m > MAX_HALL_DIMENSION_M || hall_depth_m > MAX_HALL_DIMENSION_M) {
+        alert(`会場の幅または奥行きが最大許容値 (${MAX_HALL_DIMENSION_M}m) を超えています。値を修正してください。`);
+        loadingMessage.style.display = "none";
+        return;
+      }
+      
+      if (num_chairs_input > MAX_CHAIR_COUNT_JS) {
+         alert(`イスの数が最大許容値 (${MAX_CHAIR_COUNT_JS}脚) を超えています。値を修正してください。`);
+         loadingMessage.style.display = "none";
+         return;
+      }
+
       // フォームから入力値を取得し、サーバーのAPI仕様に合わせたJSONオブジェクトを作成
       const data = {
         // 会場のサイズはメートル(m)からセンチメートル(cm)に変換
-        hall_width: parseFloat(document.getElementById("hall_width").value) * 100,
-        hall_depth: parseFloat(document.getElementById("hall_depth").value) * 100,
+        hall_width: hall_width_m * 100,
+        hall_depth: hall_depth_m * 100,
         chair_width: parseInt(document.getElementById("chair_width").value),
         chair_depth: parseInt(document.getElementById("chair_depth").value),
         aisle_mode: document.getElementById("aisle_mode").value,
@@ -574,7 +602,7 @@
         data.specific_rows = parseInt(document.getElementById("specific_rows").value);
         data.num_chairs = data.specific_cols * data.specific_rows;
       } else { // 'total'
-        data.num_chairs = parseInt(document.getElementById("num_chairs").value);
+        data.num_chairs = num_chairs_input;
       }
   
       const aisle_mode = document.getElementById("aisle_mode").value;

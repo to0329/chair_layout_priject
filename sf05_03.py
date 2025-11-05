@@ -114,6 +114,14 @@ def parse_and_validate_input(data):
             "obstacles": data.get("obstacles", [])
         }
 
+        # 🚨【修正】会場サイズの上限チェック (cm)
+        if params["hall_width"] > MAX_HALL_DIMENSION_CM or params["hall_depth"] > MAX_HALL_DIMENSION_CM:
+             raise ValueError(f"会場の幅または奥行きが最大許容値 ({MAX_HALL_DIMENSION_CM}cm, 約{MAX_HALL_DIMENSION_CM / 100}m) を超えています。")
+
+        # 🚨【修正】イスの数の上限チェック
+        if params["num_chairs"] > MAX_CHAIR_COUNT:
+             raise ValueError(f"イスの数が最大許容値 ({MAX_CHAIR_COUNT}脚) を超えています。")
+
         for obs in params["obstacles"]:
             # D&D操作により座標がfloatになっている可能性があるため、floatで受け取る
             if 'x' not in obs or 'y' not in obs:
@@ -332,16 +340,18 @@ def calculate_chair_coordinates(params, layout_info):
 
                 if obs.get('type') == 'circle':
                     cx, cy, r = obs['x'], obs['y'], obs['radius']
-                    is_below = chair_y >= (cy + r)
+                    closest_y_coord = cy + r
+                    is_below = chair_y >= closest_y_coord
                     is_aligned_horizontally = (chair_x < cx + r) and (chair_x + chair_w > cx - r)
                     if is_below and is_aligned_horizontally:
-                        gap = chair_y - (cy + r)
+                        gap = chair_y - closest_y_coord
                 else: # rectangle
                     obs_x, obs_y, obs_w, obs_d = obs['x'], obs['y'], obs['width'], obs['depth']
-                    is_below = chair_y >= (obs_y + obs_d)
+                    closest_y_coord = obs_y + obs_d
+                    is_below = chair_y >= closest_y_coord
                     is_aligned_horizontally = (chair_x < obs_x + obs_w) and (chair_x + chair_w > obs_x)
                     if is_below and is_aligned_horizontally:
-                        gap = chair_y - (obs_y + obs_d)
+                        gap = chair_y - closest_y_coord
 
                 if gap < min_y_spacing:
                     coords_to_remove.add(coord)
