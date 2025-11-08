@@ -1,5 +1,4 @@
-#障害物に番号をふる
-#通路の幅を図に表示
+#アンケート更新
 from flask import Flask, request, jsonify, render_template, Response
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -377,15 +376,17 @@ def calculate_chair_coordinates(params, layout_info):
     }
 
 def create_json_response(params, layout_info, coords_data):
-    """
-    計算結果をまとめ、クライアントに返すためのJSONレスポンスオブジェクトを生成します。
-    """
+    coords_raw = coords_data.get("coords_for_display", [])
+    # 最大1万脚までに制限 & 小数点1桁に丸める
+    coords_trimmed = coords_raw[:10000]
+    coords_compressed = [[round(x, 1), round(y, 1)] for x, y in coords_trimmed]
+
     return jsonify({
         "hall_width": params["hall_width"],
         "hall_depth": params["hall_depth"],
         "chair_width": params["chair_width"],
         "chair_depth": params["chair_depth"],
-        "coords": coords_data.get("coords_for_display", []),
+        "coords": coords_compressed,  # ← 軽量化したリスト
         "found": layout_info.get("found", False),
         "cols": int(layout_info.get("cols", 0)),
         "rows": int(layout_info.get("rows", 0)),
