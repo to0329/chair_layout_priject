@@ -472,7 +472,7 @@ def index():
     return render_template("sf05_03.html")
 
 @app.route("/calculate", methods=["POST"])
-@limiter.limit("20 per minute")
+@limiter.limit("10 per minute")
 def calculate():
     """
     "/calculate" エンドポイントへのPOSTリクエストを処理します。
