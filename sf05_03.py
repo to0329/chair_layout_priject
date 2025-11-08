@@ -1,4 +1,5 @@
 #アンケート更新
+#送信データの軽量化
 from flask import Flask, request, jsonify, render_template, Response
 from flask_cors import CORS
 from flask_limiter import Limiter
