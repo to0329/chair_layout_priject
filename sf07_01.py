@@ -145,7 +145,7 @@ def create_json_response(params, layout_info, coords_data):
 
 @app.route("/")
 def index():
-    return render_template("sf05_03.html")
+    return render_template("sf07_01.html")
 
 @app.route("/calculate", methods=["POST"])
 @limiter.limit("15 per minute")
