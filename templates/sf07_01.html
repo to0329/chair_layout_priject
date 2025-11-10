@@ -690,7 +690,7 @@
         }
   
         // 詳細なレイアウト情報を表示
-        display.appendChild(document.createTextNode(`\nこの会場の最大配置可能数： ${result.cols}列 × ${result.rows}行 = ${result.max}脚\n` + `壁からの距離：左右${result.offset_x}cm 前方${result.offset_y}cm 後方${bottomGap}cm\n` + `イス同士の間隔：横${result.spacing_x}cm 縦${result.spacing_y}cm`));
+        display.appendChild(document.createTextNode(`\nこの会場の最大配置可能数： ${result.cols}列 × ${result.rows}行 = ${result.max}脚\n` + `壁からの距離：左右${result.offset_x}cm 前方${result.offset_y}cm 後方${Math.round(bottomGap)}cm\n` + `イス同士の間隔：横${result.spacing_x}cm 縦${result.spacing_y}cm`));
         if (document.getElementById("zigzag_layout").checked && result.zigzag_offset > 0) {
           display.appendChild(document.createTextNode(`\nジグザグのズレ：${result.zigzag_offset.toFixed(1)}cm`));
         }
