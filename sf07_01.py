@@ -1,4 +1,6 @@
 #サーバ軽量化
+#後ろのイスから壁の間隔を追加
+#間隔のテキストサイズを大きく
 from flask import Flask, request, jsonify, render_template, Response
 from flask_cors import CORS
 from flask_limiter import Limiter
