@@ -380,6 +380,14 @@ def calculate_chair_coordinates(params, layout_info):
     # 座標の丸め込みは、描画時に行う (sf07_01.pyの元々のロジックを修正)
     coords_for_display = [[round(x, 1), round(y, 1)] for x, y in final_placeable_coords[:num_chairs_to_draw]]
     
+    bottom_gap = 0
+    if final_placeable_coords:
+        # y座標の最大値（最も奥にある椅子の位置）を求める
+        max_y = max(coord[1] for coord in final_placeable_coords[:num_chairs_to_draw])
+        # 最後列の椅子の端 (max_y + chair_depth) から会場の奥行き (hall_depth) までの距離
+        bottom_gap = params["hall_depth"] - (max_y + params["chair_depth"])
+        bottom_gap = max(0, bottom_gap) # 負の値にならないように0未満は0とする
+
     return {
         "coords_for_display": coords_for_display,
         "total_displayed": len(coords_for_display),
@@ -389,6 +397,7 @@ def calculate_chair_coordinates(params, layout_info):
         "offset_x": offset_x,
         "offset_y": offset_y,
         "zigzag_offset": space_x / 2 if params["zigzag_layout"] else 0,
+        "bottom_gap": bottom_gap, # NEW: 後方の壁との距離を追加
     }
 
 def create_json_response(params, layout_info, coords_data):
@@ -414,7 +423,8 @@ def create_json_response(params, layout_info, coords_data):
         "zigzag_offset": coords_data.get("zigzag_offset", 0),
         "obstacles": params.get("obstacles", []),
         "collision_skips": coords_data.get("collision_skips", 0),
-        "spacing_skips": coords_data.get("spacing_skips", 0)
+        "spacing_skips": coords_data.get("spacing_skips", 0),
+        "bottom_gap": int(coords_data.get("bottom_gap", 0)), # NEW: レスポンスJSONに追加
     }
     return jsonify(response_data)
 
